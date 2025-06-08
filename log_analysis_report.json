@@ -1,0 +1,347 @@
+{
+  "summary": {
+    "total_files": 2,
+    "total_entries": 21,
+    "total_errors": 0,
+    "analysis_time": "2025-06-08T19:09:46.729600"
+  },
+  "files": [
+    {
+      "entries": [
+        {
+          "ip": "192.168.1.100",
+          "timestamp": "08/Jun/2024:10:00:01 +0800",
+          "method": "GET",
+          "url": "/index.html",
+          "protocol": "HTTP/1.1",
+          "status": 200,
+          "size": "1234",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.101",
+          "timestamp": "08/Jun/2024:10:00:15 +0800",
+          "method": "POST",
+          "url": "/api/login",
+          "protocol": "HTTP/1.1",
+          "status": 200,
+          "size": "567",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.102",
+          "timestamp": "08/Jun/2024:10:01:30 +0800",
+          "method": "GET",
+          "url": "/api/users",
+          "protocol": "HTTP/1.1",
+          "status": 200,
+          "size": "2345",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.100",
+          "timestamp": "08/Jun/2024:10:02:45 +0800",
+          "method": "GET",
+          "url": "/static/css/style.css",
+          "protocol": "HTTP/1.1",
+          "status": 304,
+          "size": "0",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.103",
+          "timestamp": "08/Jun/2024:10:03:12 +0800",
+          "method": "POST",
+          "url": "/api/data",
+          "protocol": "HTTP/1.1",
+          "status": 500,
+          "size": "123",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.101",
+          "timestamp": "08/Jun/2024:10:04:20 +0800",
+          "method": "GET",
+          "url": "/api/logout",
+          "protocol": "HTTP/1.1",
+          "status": 200,
+          "size": "89",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.104",
+          "timestamp": "08/Jun/2024:10:05:30 +0800",
+          "method": "GET",
+          "url": "/admin/dashboard",
+          "protocol": "HTTP/1.1",
+          "status": 403,
+          "size": "456",
+          "format": "apache_common",
+          "parsed": true
+        },
+        {
+          "ip": "192.168.1.100",
+          "timestamp": "08/Jun/2024:10:06:45 +0800",
+          "method": "GET",
+          "url": "/api/status",
+          "protocol": "HTTP/1.1",
+          "status": 200,
+          "size": "234",
+          "format": "apache_common",
+          "parsed": true
+        }
+      ],
+      "total_entries": 8,
+      "time_range": {
+        "start": "2024-06-08T10:00:01+08:00",
+        "end": "2024-06-08T10:06:45+08:00",
+        "duration": "0:06:44",
+        "total_timestamps": 8
+      },
+      "statistics": {
+        "status_codes": {
+          "200": 5,
+          "304": 1,
+          "500": 1,
+          "403": 1
+        },
+        "methods": {
+          "GET": 6,
+          "POST": 2
+        },
+        "ips": {
+          "192.168.1.100": 3,
+          "192.168.1.101": 2,
+          "192.168.1.102": 1,
+          "192.168.1.103": 1,
+          "192.168.1.104": 1
+        },
+        "urls": {
+          "/index.html": 1,
+          "/api/login": 1,
+          "/api/users": 1,
+          "/static/css/style.css": 1,
+          "/api/data": 1,
+          "/api/logout": 1,
+          "/admin/dashboard": 1,
+          "/api/status": 1
+        },
+        "user_agents": {},
+        "total_bytes": 0,
+        "unique_ips": 5,
+        "error_rate": "25.00%"
+      },
+      "patterns": {
+        "repeated_messages": {},
+        "ip_patterns": {},
+        "time_patterns": {}
+      },
+      "anomalies": [
+        {
+          "type": "high_error_rate",
+          "description": "高错误率: 1/8 (12.5%)",
+          "severity": "high"
+        }
+      ],
+      "file_path": "examples/log_samples/access.log",
+      "file_size": 1083,
+      "total_lines": 8,
+      "parsed_lines": 8,
+      "error_lines": 0,
+      "log_format": "apache_common",
+      "parse_success_rate": "100.0%"
+    },
+    {
+      "entries": [
+        {
+          "timestamp": "2024-06-08 10:00:01,123",
+          "level": "INFO",
+          "logger": "main",
+          "message": "应用程序启动",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:00:02,456",
+          "level": "INFO",
+          "logger": "database",
+          "message": "连接数据库成功",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:00:05,789",
+          "level": "INFO",
+          "logger": "server",
+          "message": "HTTP服务器启动在端口8080",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:01:15,234",
+          "level": "INFO",
+          "logger": "auth",
+          "message": "用户登录: user123",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:01:30,567",
+          "level": "WARNING",
+          "logger": "cache",
+          "message": "缓存命中率低: 45%",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:02:45,890",
+          "level": "ERROR",
+          "logger": "database",
+          "message": "数据库连接超时",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:02:46,123",
+          "level": "INFO",
+          "logger": "database",
+          "message": "重新连接数据库",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:03:12,456",
+          "level": "INFO",
+          "logger": "api",
+          "message": "API请求: /api/users",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:03:15,789",
+          "level": "ERROR",
+          "logger": "api",
+          "message": "API请求失败: 500 Internal Server Error",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:04:20,012",
+          "level": "INFO",
+          "logger": "auth",
+          "message": "用户登出: user123",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:05:30,345",
+          "level": "CRITICAL",
+          "logger": "system",
+          "message": "内存使用率超过90%",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:05:31,678",
+          "level": "WARNING",
+          "logger": "system",
+          "message": "开始清理缓存",
+          "format": "python_logging",
+          "parsed": true
+        },
+        {
+          "timestamp": "2024-06-08 10:05:35,901",
+          "level": "INFO",
+          "logger": "system",
+          "message": "缓存清理完成，内存使用率: 65%",
+          "format": "python_logging",
+          "parsed": true
+        }
+      ],
+      "total_entries": 13,
+      "time_range": {
+        "start": "2024-06-08T10:00:01.123000",
+        "end": "2024-06-08T10:05:35.901000",
+        "duration": "0:05:34.778000",
+        "total_timestamps": 13
+      },
+      "statistics": {
+        "log_levels": {
+          "INFO": 8,
+          "WARNING": 2,
+          "ERROR": 2,
+          "CRITICAL": 1
+        },
+        "loggers": {
+          "main": 1,
+          "database": 3,
+          "server": 1,
+          "auth": 2,
+          "cache": 1,
+          "api": 2,
+          "system": 3
+        },
+        "messages": {
+          "应用程序启动": 1,
+          "连接数据库成功": 1,
+          "HTTP服务器启动在端口8080": 1,
+          "用户登录: user123": 1,
+          "缓存命中率低: 45%": 1,
+          "数据库连接超时": 1,
+          "重新连接数据库": 1,
+          "API请求: /api/users": 1,
+          "API请求失败: 500 Internal Server Error": 1,
+          "用户登出: user123": 1,
+          "内存使用率超过90%": 1,
+          "开始清理缓存": 1,
+          "缓存清理完成，内存使用率: 65%": 1
+        },
+        "error_messages": [
+          "数据库连接超时",
+          "API请求失败: 500 Internal Server Error",
+          "内存使用率超过90%"
+        ],
+        "warning_messages": [
+          "缓存命中率低: 45%",
+          "开始清理缓存"
+        ]
+      },
+      "patterns": {
+        "repeated_messages": {},
+        "ip_patterns": {},
+        "time_patterns": {}
+      },
+      "anomalies": [],
+      "file_path": "examples/log_samples/app.log",
+      "file_size": 887,
+      "total_lines": 13,
+      "parsed_lines": 13,
+      "error_lines": 0,
+      "log_format": "python_logging",
+      "parse_success_rate": "100.0%"
+    }
+  ],
+  "global_statistics": {
+    "total_log_entries": 21,
+    "log_formats": {
+      "apache_common": 1,
+      "python_logging": 1
+    },
+    "time_range": {
+      "start": "2024-06-08T10:00:01+08:00",
+      "end": "2024-06-08T10:05:35.901000+00:00",
+      "total_duration": "8:05:34.901000"
+    },
+    "common_patterns": {}
+  },
+  "recommendations": [
+    "高错误率警告: 25.00% - 建议检查应用程序错误",
+    "检测到高严重性异常，建议立即调查"
+  ]
+}

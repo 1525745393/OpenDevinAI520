@@ -1,0 +1,54 @@
+labels: ["discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您参与 OpenDevinAI520 社区讨论！🎉
+        
+        请选择合适的讨论类别，让我们一起交流学习。
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 讨论类别
+      description: 请选择最符合您讨论内容的类别
+      options:
+        - 使用问题和技巧分享
+        - 功能建议和改进意见
+        - 技术交流和最佳实践
+        - 项目发展和规划讨论
+        - 社区活动和合作
+        - 其他话题
+    validations:
+      required: true
+
+  - type: textarea
+    id: content
+    attributes:
+      label: 讨论内容
+      description: 请详细描述您想讨论的内容
+      placeholder: |
+        请在这里分享您的想法、问题或建议...
+        
+        如果是技术问题，请提供：
+        - 具体的使用场景
+        - 遇到的问题或困难
+        - 期望的解决方案
+        
+        如果是功能建议，请提供：
+        - 功能的具体描述
+        - 使用场景和预期收益
+        - 实现思路（如果有的话）
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 社区准则
+      description: 请确认您已阅读并同意遵守我们的社区准则
+      options:
+        - label: 我已阅读并同意遵守 [社区准则](../COMMUNITY.md)
+          required: true
+        - label: 我承诺进行友善和建设性的讨论
+          required: true

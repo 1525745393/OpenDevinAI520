@@ -98,6 +98,30 @@ OpenDevinAI520/
 - 测试：为新功能添加相应的测试
 - 文档：更新相关文档
 
+## 社区
+
+### 🤝 加入我们
+我们正在寻找志同道合的开发者加入我们的团队！
+
+- 📋 **[招募贡献者](CONTRIBUTORS_WANTED.md)** - 查看开放职位
+- 🌟 **[社区指南](COMMUNITY.md)** - 了解社区文化
+- 💬 **[讨论区](https://github.com/1525745393/OpenDevinAI520/discussions)** - 参与讨论
+
+### 🚀 贡献方式
+- 🐛 [报告bug](https://github.com/1525745393/OpenDevinAI520/issues/new?template=bug_report.md)
+- 💡 [提出新功能](https://github.com/1525745393/OpenDevinAI520/issues/new?template=feature_request.md)  
+- 📝 改进文档和示例
+- 🔧 提交代码和修复
+- 🧪 编写测试用例
+- 👥 [申请成为贡献者](https://github.com/1525745393/OpenDevinAI520/issues/new?template=contributor_application.md)
+
+详细信息请查看 [贡献指南](CONTRIBUTING.md)。
+
+### 🏆 贡献者
+感谢所有为项目做出贡献的开发者们！
+
+<!-- 贡献者列表将在这里自动更新 -->
+
 ## 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
@@ -106,13 +130,17 @@ OpenDevinAI520/
 
 - 项目主页：[https://github.com/1525745393/OpenDevinAI520](https://github.com/1525745393/OpenDevinAI520)
 - 问题反馈：[Issues](https://github.com/1525745393/OpenDevinAI520/issues)
-
-## 致谢
-
-感谢所有为这个项目做出贡献的开发者们！
+- 社区讨论：[Discussions](https://github.com/1525745393/OpenDevinAI520/discussions)
 
 ---
 
-⭐ 如果这个项目对您有帮助，请给我们一个星标！
+## 🌟 支持项目
 
-**人人为我，我为人人 - 让我们一起构建更好的开发工具生态！**
+如果这个项目对您有帮助，请考虑：
+
+- ⭐ 给项目点个Star
+- 🔄 分享给更多开发者
+- 🐛 报告问题和建议
+- 🤝 成为贡献者
+
+**"人人为我，我为人人"** - 让我们一起构建更好的开发工具生态！

@@ -84,8 +84,10 @@ def main():
         console.print("  - 快速配置Python, Node.js, Docker, Git环境")
         console.print("  - 使用: python -m src.tools.env_configurator <command>")
         console.print()
-        console.print("• 日志分析工具 [dim](开发中)[/dim]")
-        console.print("\n💡 [yellow]更多工具正在开发中，敬请期待！[/yellow]")
+        console.print("• 日志分析工具 [green]✅ 可用[/green]")
+        console.print("  - 智能分析应用日志，支持多种格式")
+        console.print("  - 使用: python -m src.tools.log_analyzer <command>")
+        console.print("\n🎉 [green]所有核心工具已完成开发！[/green]")
     else:
         console.print("\n🎯 [bold]使用 --help 查看所有可用选项[/bold]")
         console.print("🔧 [bold]使用 --list-tools 查看可用工具[/bold]")

@@ -309,6 +309,42 @@ python -m src.tools.env_configurator nodejs ./my_app
 python -m src.tools.env_configurator full ./my_project --type python
 ```
 
+### 7. 日志分析工具 (log_analyzer)
+
+智能分析应用日志，提取关键信息和统计数据。
+
+#### 命令行使用
+
+```bash
+# 分析单个日志文件
+python -m src.tools.log_analyzer analyze app.log
+
+# 分析并生成报告
+python -m src.tools.log_analyzer analyze app.log --output report.json
+
+# 批量分析日志文件
+python -m src.tools.log_analyzer batch ./logs --pattern "*.log"
+
+# 实时监控日志文件
+python -m src.tools.log_analyzer monitor app.log --tail 20
+```
+
+#### 支持的日志格式
+- Apache Common/Combined 格式
+- Nginx 访问日志
+- Python logging 格式
+- Syslog 格式
+- JSON 格式日志
+- 自定义时间戳格式
+
+#### 分析功能
+- 自动检测日志格式
+- 时间范围分析
+- 状态码统计（Web日志）
+- 错误率计算
+- 异常检测
+- 模式识别
+
 ### 添加新工具
 
 1. 在 `src/tools/` 目录创建新的Python文件
