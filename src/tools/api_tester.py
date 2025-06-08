@@ -65,15 +65,14 @@ class APITester:
         start_time = time.time()
         
         try:
-            with console.status(f"[bold green]测试 {test_name}..."):
-                response = self.session.request(
-                    method=method.upper(),
-                    url=url,
-                    json=data if method.upper() in ['POST', 'PUT', 'PATCH'] else None,
-                    params=params,
-                    headers=request_headers,
-                    timeout=self.timeout
-                )
+            response = self.session.request(
+                method=method.upper(),
+                url=url,
+                json=data if method.upper() in ['POST', 'PUT', 'PATCH'] else None,
+                params=params,
+                headers=request_headers,
+                timeout=self.timeout
+            )
             
             end_time = time.time()
             response_time = round((end_time - start_time) * 1000, 2)  # 毫秒

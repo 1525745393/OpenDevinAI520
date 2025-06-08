@@ -13,11 +13,14 @@ OpenDevinAI520 是一个实用工具开发平台，秉承"自用人人为我我�
 
 ## 功能模块
 
+### 已实现的工具
+
+- [x] **代码格式化工具** - 支持Python, JavaScript, TypeScript, JSON, CSS
+- [x] **文件批量处理工具** - 批量重命名、复制、移动、组织文件
+- [x] **API测试工具** - REST API测试、批量测试、报告生成
+
 ### 计划中的工具
 
-- [ ] 代码格式化工具
-- [ ] 文件批量处理工具
-- [ ] API测试工具
 - [ ] 数据转换工具
 - [ ] 开发环境配置工具
 - [ ] 日志分析工具
@@ -36,10 +39,21 @@ npm install
 # 或者
 pip install -r requirements.txt
 
-# 运行项目
-npm start
-# 或者
-python main.py
+# 查看可用工具
+python src/main.py --list-tools
+
+# 使用示例
+# 1. 格式化代码
+python -m src.tools.code_formatter ./src
+
+# 2. 批量重命名文件（预览模式）
+python -m src.tools.file_processor rename ./files "old_" "new_" --preview
+
+# 3. 测试API
+python -m src.tools.api_tester test GET "https://httpbin.org/get"
+
+# 4. 批量API测试
+python -m src.tools.api_tester batch examples/api_test_suite.json
 ```
 
 ## 项目结构
