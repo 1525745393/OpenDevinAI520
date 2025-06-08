@@ -1,0 +1,168 @@
+{
+  "app_info": {
+    "name": "智能影视文件重命名工具 - 增强版",
+    "version": "2.0.0",
+    "description": "集成TMDb和豆瓣API的智能影视文件重命名工具",
+    "author": "OpenHands AI",
+    "supported_os": ["Windows", "macOS", "Linux", "Synology"]
+  },
+  
+  "api_settings": {
+    "tmdb": {
+      "enabled": true,
+      "api_key": "your_tmdb_api_key_here",
+      "language": "zh-CN",
+      "region": "CN",
+      "description": "TMDb API用于获取国际影视数据，需要注册获取API密钥"
+    },
+    "douban": {
+      "enabled": true,
+      "description": "豆瓣API用于获取中文影视数据，无需API密钥但有访问限制"
+    },
+    "general": {
+      "timeout": 10,
+      "retry_count": 3,
+      "rate_limit_delay": 1.0,
+      "cache_enabled": true,
+      "cache_expire_days": 7
+    }
+  },
+  
+  "metadata_settings": {
+    "fetch_metadata": true,
+    "generate_nfo": true,
+    "download_posters": true,
+    "download_fanart": true,
+    "prefer_chinese_title": true,
+    "fallback_to_original": true,
+    "metadata_priority": ["tmdb", "douban"],
+    "poster_size": "w500",
+    "fanart_size": "w1280"
+  },
+  
+  "naming_templates": {
+    "movie_templates": {
+      "synology_default": "{title} ({year}) [{resolution}] [{quality}].{ext}",
+      "enhanced_synology": "{chinese_title} {title} ({year}) [{resolution}] [{quality}] [评分{rating}].{ext}",
+      "metadata_rich": "{title} ({year}) [TMDb{tmdb_rating}] [豆瓣{douban_rating}] [{resolution}].{ext}",
+      "chinese_preferred": "{chinese_title} ({year}) [{resolution}] [{quality}].{ext}",
+      "plex_format": "{title} ({year}).{ext}",
+      "simple": "{title} ({year}).{ext}"
+    },
+    "tv_templates": {
+      "synology_default": "{title} S{season:02d}E{episode:02d} [{resolution}] [{quality}].{ext}",
+      "enhanced_synology": "{chinese_title} {title} S{season:02d}E{episode:02d} [{resolution}] [{quality}] [评分{rating}].{ext}",
+      "metadata_rich": "{title} S{season:02d}E{episode:02d} [TMDb{tmdb_rating}] [豆瓣{douban_rating}] [{resolution}].{ext}",
+      "chinese_preferred": "{chinese_title} S{season:02d}E{episode:02d} [{resolution}] [{quality}].{ext}",
+      "plex_format": "{title} - S{season:02d}E{episode:02d}.{ext}",
+      "simple": "{title} S{season:02d}E{episode:02d}.{ext}"
+    },
+    "current_movie_template": "enhanced_synology",
+    "current_tv_template": "enhanced_synology"
+  },
+  
+  "supported_formats": {
+    "video_extensions": [
+      ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", 
+      ".webm", ".m4v", ".3gp", ".ts", ".mts", ".m2ts",
+      ".rmvb", ".rm", ".asf", ".f4v", ".vob"
+    ],
+    "subtitle_extensions": [
+      ".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt"
+    ]
+  },
+  
+  "extraction_rules": {
+    "movie_patterns": [
+      {
+        "name": "标准电影格式",
+        "pattern": "^(.+?)[\\.\s]+(\\d{4})[\\.\s]*(.*)$",
+        "groups": {"title": 1, "year": 2, "extra": 3},
+        "description": "匹配：电影名.2023.1080p.BluRay.x264"
+      },
+      {
+        "name": "括号年份格式",
+        "pattern": "^(.+?)\\s*\\((\\d{4})\\)\\s*(.*)$",
+        "groups": {"title": 1, "year": 2, "extra": 3},
+        "description": "匹配：电影名 (2023) 1080p"
+      }
+    ],
+    "tv_patterns": [
+      {
+        "name": "标准剧集格式",
+        "pattern": "^(.+?)[\\.\s]+[Ss](\\d{1,2})[Ee](\\d{1,2})[\\.\s]*(.*)$",
+        "groups": {"title": 1, "season": 2, "episode": 3, "extra": 4},
+        "description": "匹配：剧名.S01E01.1080p"
+      },
+      {
+        "name": "数字季集格式",
+        "pattern": "^(.+?)[\\.\s]+(\\d{1,2})x(\\d{1,2})[\\.\s]*(.*)$",
+        "groups": {"title": 1, "season": 2, "episode": 3, "extra": 4},
+        "description": "匹配：剧名.1x01.720p"
+      }
+    ],
+    "extra_patterns": {
+      "resolution": [
+        "(4K|2160p|1080p|720p|480p|360p)",
+        "(\\d{3,4}p)"
+      ],
+      "quality": [
+        "(BluRay|BDRip|DVDRip|WEBRip|HDTV|CAM|TS|TC)",
+        "(蓝光|高清|超清|标清)"
+      ],
+      "source": [
+        "(Netflix|Amazon|Disney|HBO|Hulu|Apple)",
+        "(网飞|亚马逊|迪士尼|爱奇艺|腾讯|优酷)"
+      ],
+      "codec": [
+        "(x264|x265|H\\.264|H\\.265|HEVC|AVC)",
+        "(h264|h265|hevc|avc)"
+      ],
+      "audio": [
+        "(DTS|AC3|AAC|MP3|FLAC|Atmos)",
+        "(杜比|环绕声)"
+      ],
+      "language": [
+        "(Chinese|English|Japanese|Korean)",
+        "(中文|英文|日文|韩文|国语|粤语)"
+      ],
+      "group": [
+        "\\[([^\\]]+)\\]$",
+        "-([A-Za-z0-9]+)$"
+      ]
+    }
+  },
+  
+  "app_settings": {
+    "default_work_directory": "",
+    "backup_enabled": true,
+    "backup_directory": "backup",
+    "dry_run_default": true,
+    "auto_detect_type": true,
+    "case_sensitive": false,
+    "skip_existing": true,
+    "create_directories": true,
+    "log_level": "INFO",
+    "max_log_files": 10,
+    "encoding": "utf-8"
+  },
+  
+  "synology_settings": {
+    "video_station_path": "/volume1/video",
+    "movie_folder": "Movies",
+    "tv_folder": "TV Shows",
+    "create_season_folders": true,
+    "season_folder_format": "Season {season:02d}",
+    "metadata_files": [".nfo", ".jpg", ".png"],
+    "preserve_metadata": true
+  },
+  
+  "safety_settings": {
+    "max_files_per_batch": 1000,
+    "confirm_before_rename": true,
+    "create_undo_log": true,
+    "forbidden_characters": ["<", ">", ":", "\"", "|", "?", "*"],
+    "max_filename_length": 255,
+    "preserve_original_case": false
+  }
+}
