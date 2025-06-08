@@ -1,0 +1,52 @@
+[
+  {
+    "name": "获取用户信息",
+    "method": "GET",
+    "endpoint": "https://jsonplaceholder.typicode.com/users/1",
+    "expected_status": 200,
+    "headers": {
+      "Accept": "application/json"
+    }
+  },
+  {
+    "name": "获取所有帖子",
+    "method": "GET",
+    "endpoint": "https://jsonplaceholder.typicode.com/posts",
+    "expected_status": 200
+  },
+  {
+    "name": "创建新帖子",
+    "method": "POST",
+    "endpoint": "https://jsonplaceholder.typicode.com/posts",
+    "data": {
+      "title": "测试帖子",
+      "body": "这是一个测试帖子的内容",
+      "userId": 1
+    },
+    "expected_status": 201
+  },
+  {
+    "name": "更新帖子",
+    "method": "PUT",
+    "endpoint": "https://jsonplaceholder.typicode.com/posts/1",
+    "data": {
+      "id": 1,
+      "title": "更新的帖子标题",
+      "body": "更新的帖子内容",
+      "userId": 1
+    },
+    "expected_status": 200
+  },
+  {
+    "name": "删除帖子",
+    "method": "DELETE",
+    "endpoint": "https://jsonplaceholder.typicode.com/posts/1",
+    "expected_status": 200
+  },
+  {
+    "name": "获取不存在的资源",
+    "method": "GET",
+    "endpoint": "https://jsonplaceholder.typicode.com/posts/999999",
+    "expected_status": 404
+  }
+]

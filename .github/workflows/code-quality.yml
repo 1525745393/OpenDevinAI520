@@ -1,0 +1,163 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black flake8 mypy isort bandit
+
+    - name: Format check with Black
+      run: |
+        black --check --diff src/
+
+    - name: Import sorting check with isort
+      run: |
+        isort --check-only --diff src/
+
+    - name: Lint with flake8
+      run: |
+        flake8 src/ --max-line-length=88 --extend-ignore=E203,W503
+
+    - name: Type checking with mypy
+      run: |
+        mypy src/ --ignore-missing-imports
+
+    - name: Security check with bandit
+      run: |
+        bandit -r src/ -ll
+
+    - name: Check for common issues
+      run: |
+        # Check for TODO/FIXME comments
+        echo "Checking for TODO/FIXME comments..."
+        grep -r "TODO\|FIXME" src/ || echo "No TODO/FIXME found"
+        
+        # Check for print statements (should use logging)
+        echo "Checking for print statements..."
+        grep -r "print(" src/ || echo "No print statements found"
+        
+        # Check for hardcoded secrets patterns
+        echo "Checking for potential secrets..."
+        grep -r -i "password\|secret\|key\|token" src/ --include="*.py" | grep -v "# nosec" || echo "No potential secrets found"
+
+  documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install documentation dependencies
+      run: |
+        pip install mkdocs mkdocs-material
+
+    - name: Check documentation build
+      run: |
+        mkdocs build --strict
+
+    - name: Check for broken links in documentation
+      run: |
+        # Install link checker
+        npm install -g markdown-link-check
+        
+        # Check all markdown files
+        find docs/ -name "*.md" -exec markdown-link-check {} \;
+
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install pip-audit
+      run: |
+        pip install pip-audit
+
+    - name: Check for vulnerable dependencies
+      run: |
+        pip-audit --requirement requirements.txt
+
+    - name: Check for outdated dependencies
+      run: |
+        pip install pip-check
+        pip-check
+
+  performance:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pytest-benchmark
+
+    - name: Run performance tests
+      run: |
+        # Create simple performance test
+        cat > test_performance.py << 'EOF'
+        import pytest
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+        from tools.code_formatter import CodeFormatter
+        from tools.file_processor import FileProcessor
+
+        def test_code_formatter_performance(benchmark):
+            formatter = CodeFormatter()
+            test_code = "def hello():\n    print('world')\n" * 100
+            
+            with open('test_perf.py', 'w') as f:
+                f.write(test_code)
+            
+            result = benchmark(formatter.format_file, 'test_perf.py')
+            assert result is not None
+
+        def test_file_processor_performance(benchmark):
+            processor = FileProcessor()
+            
+            # Create test files
+            os.makedirs('perf_test', exist_ok=True)
+            for i in range(50):
+                with open(f'perf_test/file_{i}.txt', 'w') as f:
+                    f.write(f'content {i}')
+            
+            result = benchmark(processor.batch_rename, 'perf_test', r'file_(\d+)', r'renamed_\1', True)
+            assert 'renamed' in result
+        EOF
+        
+        pytest test_performance.py --benchmark-only --benchmark-sort=mean

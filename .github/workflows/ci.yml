@@ -1,0 +1,246 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10', '3.11']
+        node-version: [16, 18, 20]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Cache Node dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov flake8 black
+
+    - name: Install Node.js dependencies
+      run: |
+        npm install
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Check code formatting with black
+      run: |
+        black --check src/
+
+    - name: Run Python tests
+      run: |
+        python -m pytest tests/ -v --cov=src --cov-report=xml
+
+    - name: Run Node.js tests
+      run: |
+        npm test
+
+    - name: Test tools functionality
+      run: |
+        # Test main entry point
+        python src/main.py --version
+        python src/main.py --list-tools
+        
+        # Test code formatter
+        echo "def test(): print('hello')" > test_format.py
+        python -m src.tools.code_formatter test_format.py
+        
+        # Test file processor (preview mode)
+        mkdir test_files
+        touch test_files/test1.txt test_files/test2.txt
+        python -m src.tools.file_processor rename test_files "test" "demo" --preview
+        
+        # Test API tester with public API
+        python -m src.tools.api_tester test GET "https://httpbin.org/get"
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install security tools
+      run: |
+        pip install bandit safety
+
+    - name: Run bandit security linter
+      run: |
+        bandit -r src/ -f json -o bandit-report.json || true
+
+    - name: Check for known security vulnerabilities
+      run: |
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  build:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        npm install
+
+    - name: Build documentation
+      run: |
+        pip install mkdocs mkdocs-material
+        mkdocs build
+
+    - name: Build Node.js application
+      run: |
+        npm run build
+
+    - name: Create release package
+      run: |
+        mkdir -p dist
+        cp -r src/ dist/
+        cp -r docs/ dist/
+        cp requirements.txt package.json README.md LICENSE dist/
+        tar -czf opendevinai520-${{ github.sha }}.tar.gz -C dist .
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          opendevinai520-${{ github.sha }}.tar.gz
+          site/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-artifacts
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./site
+
+  release:
+    needs: [test, security, build]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-artifacts
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## 🎉 新版本发布
+
+          ### ✨ 新功能
+          - 请查看提交历史了解详细更新内容
+
+          ### 🐛 修复
+          - 各种bug修复和性能优化
+
+          ### 📚 文档
+          - 更新了使用文档和API参考
+
+          ### 🔧 技术改进
+          - 代码质量提升
+          - 测试覆盖率改进
+
+          ---
+          **人人为我，我为人人 - 感谢所有贡献者！** 🚀
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./opendevinai520-${{ github.sha }}.tar.gz
+        asset_name: opendevinai520-${{ github.ref_name }}.tar.gz
+        asset_content_type: application/gzip

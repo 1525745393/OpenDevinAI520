@@ -60,9 +60,18 @@ def main():
     
     if args.list_tools:
         console.print("\n📋 [bold]可用工具列表:[/bold]")
-        console.print("• 代码格式化工具 [dim](开发中)[/dim]")
-        console.print("• 文件批量处理工具 [dim](开发中)[/dim]")
-        console.print("• API测试工具 [dim](开发中)[/dim]")
+        console.print("• 代码格式化工具 [green]✅ 可用[/green]")
+        console.print("  - 支持 Python, JavaScript, TypeScript, JSON, CSS")
+        console.print("  - 使用: python -m tools.code_formatter <path>")
+        console.print()
+        console.print("• 文件批量处理工具 [green]✅ 可用[/green]")
+        console.print("  - 批量重命名、复制、移动、组织文件")
+        console.print("  - 使用: python -m tools.file_processor <command>")
+        console.print()
+        console.print("• API测试工具 [green]✅ 可用[/green]")
+        console.print("  - 快速测试API接口，支持批量测试")
+        console.print("  - 使用: python -m tools.api_tester <command>")
+        console.print()
         console.print("• 数据转换工具 [dim](开发中)[/dim]")
         console.print("• 开发环境配置工具 [dim](开发中)[/dim]")
         console.print("• 日志分析工具 [dim](开发中)[/dim]")
@@ -70,6 +79,10 @@ def main():
     else:
         console.print("\n🎯 [bold]使用 --help 查看所有可用选项[/bold]")
         console.print("🔧 [bold]使用 --list-tools 查看可用工具[/bold]")
+        console.print("\n📚 [bold cyan]快速开始:[/bold cyan]")
+        console.print("• 格式化代码: [dim]python -m tools.code_formatter ./src[/dim]")
+        console.print("• 批量重命名: [dim]python -m tools.file_processor rename ./files 'old_' 'new_'[/dim]")
+        console.print("• 测试API: [dim]python -m tools.api_tester test GET /api/users[/dim]")
 
 if __name__ == "__main__":
     try:
