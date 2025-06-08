@@ -31,13 +31,20 @@
   "metadata_settings": {
     "fetch_metadata": true,
     "generate_nfo": true,
+    "nfo_format": "vsmeta",
     "download_posters": true,
     "download_fanart": true,
     "prefer_chinese_title": true,
     "fallback_to_original": true,
     "metadata_priority": ["tmdb", "douban"],
     "poster_size": "w500",
-    "fanart_size": "w1280"
+    "fanart_size": "w1280",
+    "create_synology_structure": true,
+    "_format_description": {
+      "nfo_format": "元数据格式: 'nfo'=标准NFO格式(Kodi/Jellyfin), 'vsmeta'=群晖Video Station格式",
+      "poster_size": "海报尺寸: w92/w154/w185/w342/w500/w780/original",
+      "fanart_size": "背景图尺寸: w300/w780/w1280/original"
+    }
   },
   
   "naming_templates": {

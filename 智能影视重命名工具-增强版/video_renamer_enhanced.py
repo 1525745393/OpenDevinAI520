@@ -840,15 +840,41 @@ class NFOGenerator:
     NFO文件生成器
     
     为媒体中心生成元数据文件
+    支持标准NFO格式和群晖vsmeta格式
     """
     
     def __init__(self):
         """初始化NFO生成器"""
         self.logger = logging.getLogger(__name__)
+        
+        # 导入vsmeta生成器
+        try:
+            from vsmeta_generator import VSMetaGenerator
+            self.vsmeta_generator = VSMetaGenerator()
+        except ImportError:
+            self.vsmeta_generator = None
+            self.logger.warning("vsmeta生成器导入失败，将只支持标准NFO格式")
     
-    def generate_movie_nfo(self, metadata: MovieMetadata, file_path: Path) -> bool:
+    def generate_movie_nfo(self, metadata: MovieMetadata, file_path: Path, format_type: str = "nfo") -> bool:
         """
-        生成电影NFO文件
+        生成电影元数据文件
+        
+        参数:
+            metadata (MovieMetadata): 电影元数据
+            file_path (Path): 视频文件路径
+            format_type (str): 格式类型 ("nfo" 或 "vsmeta")
+        
+        返回:
+            bool: 生成是否成功
+        """
+        if format_type == "vsmeta" and self.vsmeta_generator:
+            return self.vsmeta_generator.generate_movie_vsmeta(metadata, file_path)
+        else:
+            return self._generate_movie_nfo_xml(metadata, file_path)
+    
+    def _generate_movie_nfo_xml(self, metadata: MovieMetadata, file_path: Path) -> bool:
+        """
+        生成标准NFO格式的电影文件
         
         参数:
             metadata (MovieMetadata): 电影元数据
@@ -930,9 +956,28 @@ class NFOGenerator:
             self.logger.error(f"生成电影NFO文件失败: {e}")
             return False
     
-    def generate_tv_nfo(self, metadata: TVMetadata, file_path: Path) -> bool:
+    def generate_tv_nfo(self, metadata: TVMetadata, file_path: Path, format_type: str = "nfo", season: int = 1, episode: int = 1) -> bool:
         """
-        生成电视剧NFO文件
+        生成电视剧元数据文件
+        
+        参数:
+            metadata (TVMetadata): 电视剧元数据
+            file_path (Path): 视频文件路径
+            format_type (str): 格式类型 ("nfo" 或 "vsmeta")
+            season (int): 季数
+            episode (int): 集数
+        
+        返回:
+            bool: 生成是否成功
+        """
+        if format_type == "vsmeta" and self.vsmeta_generator:
+            return self.vsmeta_generator.generate_tv_vsmeta(metadata, file_path, season, episode)
+        else:
+            return self._generate_tv_nfo_xml(metadata, file_path)
+    
+    def _generate_tv_nfo_xml(self, metadata: TVMetadata, file_path: Path) -> bool:
+        """
+        生成标准NFO格式的电视剧文件
         
         参数:
             metadata (TVMetadata): 电视剧元数据
@@ -1134,13 +1179,15 @@ class EnhancedVideoRenamer(VideoRenamer):
         base_config["metadata_settings"] = {
             "fetch_metadata": True,
             "generate_nfo": True,
+            "nfo_format": "vsmeta",  # "nfo" 或 "vsmeta" (群晖Video Station专用)
             "download_posters": True,
             "download_fanart": True,
             "prefer_chinese_title": True,
             "fallback_to_original": True,
             "metadata_priority": ["tmdb", "douban"],
             "poster_size": "w500",
-            "fanart_size": "w1280"
+            "fanart_size": "w1280",
+            "create_synology_structure": True  # 是否创建群晖标准目录结构
         }
         
         # 增强命名模板
@@ -1416,14 +1463,25 @@ class EnhancedVideoRenamer(VideoRenamer):
                 else:
                     new_path = file_path_obj
                 
-                # 生成NFO文件
+                # 生成NFO/vsmeta文件
                 if (api_metadata and 
                     self.config.get("metadata_settings", {}).get("generate_nfo", False)):
                     
+                    # 获取元数据格式设置
+                    nfo_format = self.config.get("metadata_settings", {}).get("nfo_format", "nfo")
+                    
                     if basic_info.is_movie:
-                        result['nfo_generated'] = self.nfo_generator.generate_movie_nfo(api_metadata, new_path)
+                        result['nfo_generated'] = self.nfo_generator.generate_movie_nfo(
+                            api_metadata, new_path, nfo_format
+                        )
                     else:
-                        result['nfo_generated'] = self.nfo_generator.generate_tv_nfo(api_metadata, new_path)
+                        # 提取季集信息
+                        season = int(basic_info.season) if basic_info.season.isdigit() else 1
+                        episode = int(basic_info.episode) if basic_info.episode.isdigit() else 1
+                        
+                        result['nfo_generated'] = self.nfo_generator.generate_tv_nfo(
+                            api_metadata, new_path, nfo_format, season, episode
+                        )
                 
                 # 下载海报
                 if (api_metadata and 

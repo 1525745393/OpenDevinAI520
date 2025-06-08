@@ -8,7 +8,7 @@
 
 - **🌐 双API集成**: TMDb + 豆瓣，获取最全面的影视数据
 - **🎯 智能匹配**: 先进算法自动选择最佳匹配结果
-- **📄 NFO生成**: 支持Kodi、Jellyfin、Emby等媒体中心
+- **📄 元数据生成**: 支持标准NFO格式和群晖vsmeta格式
 - **🖼️ 海报下载**: 自动下载高质量海报和背景图
 - **💾 智能缓存**: 避免重复API调用，提升处理速度
 - **🏠 群晖优化**: 专为群晖Video Station设计
@@ -41,8 +41,10 @@ python3 video_renamer_enhanced_demo.py
 | `video_renamer_enhanced.py` | 🎯 **主程序** - 增强版重命名工具 |
 | `video_renamer.py` | 📦 **依赖** - 基础重命名功能（必需） |
 | `video_renamer_enhanced_demo.py` | 🎮 **演示** - 功能演示和测试 |
+| `vsmeta_generator.py` | 📄 **vsmeta** - 群晖Video Station元数据生成器 |
 | `install_enhanced_renamer.sh` | 🔧 **安装** - 自动安装脚本 |
 | `API_SETUP_GUIDE.md` | 📖 **配置** - API设置详细指南 |
+| `VSMETA_FORMAT_GUIDE.md` | 📋 **vsmeta** - 群晖vsmeta格式详细说明 |
 | `ENHANCED_README.md` | 📚 **文档** - 完整功能文档 |
 
 ## ⚙️ API配置
@@ -84,7 +86,25 @@ Game.of.Thrones.S01E01.1080p.BluRay.x264-DEMAND.mkv
 
 ## 📄 生成的文件
 
-### NFO元数据文件
+### 群晖vsmeta元数据文件（推荐）
+```json
+{
+  "version": "1",
+  "type": "movie",
+  "title": "The Matrix",
+  "title_local": "黑客帝国",
+  "summary": "一名年轻的程序员被神秘的黑客墨菲斯联系...",
+  "rating": 8.7,
+  "year": 1999,
+  "genre": ["科幻", "动作"],
+  "extra": {
+    "tmdb": {"id": 603, "rating": 8.2},
+    "douban": {"id": "1291843", "rating": 9.0}
+  }
+}
+```
+
+### 标准NFO元数据文件
 ```xml
 <?xml version='1.0' encoding='utf-8'?>
 <movie>
@@ -93,9 +113,6 @@ Game.of.Thrones.S01E01.1080p.BluRay.x264-DEMAND.mkv
   <year>1999</year>
   <rating name="tmdb" max="10">
     <value>8.7</value>
-  </rating>
-  <rating name="douban" max="10">
-    <value>9.0</value>
   </rating>
   <!-- 更多元数据... -->
 </movie>
@@ -122,8 +139,9 @@ Game.of.Thrones.S01E01.1080p.BluRay.x264-DEMAND.mkv
 ## 🏠 群晖NAS专用功能
 
 - **Video Station集成**: 完美支持群晖Video Station
+- **vsmeta格式**: 群晖原生元数据格式，显示效果最佳
 - **目录结构**: 自动创建标准媒体库结构
-- **元数据支持**: NFO文件被Video Station识别
+- **中文支持**: vsmeta格式对中文标题支持优秀
 - **海报显示**: 海报在Video Station中正确显示
 - **任务计划**: 支持定时自动处理新文件
 
@@ -134,7 +152,7 @@ Game.of.Thrones.S01E01.1080p.BluRay.x264-DEMAND.mkv
 | 文件名解析 | ✅ | ✅ |
 | 重命名模板 | ✅ | ✅ |
 | **API元数据获取** | ❌ | ✅ |
-| **NFO文件生成** | ❌ | ✅ |
+| **元数据文件生成** | ❌ | ✅ |
 | **海报下载** | ❌ | ✅ |
 | **智能匹配** | ❌ | ✅ |
 | **评分信息** | ❌ | ✅ |
@@ -151,6 +169,7 @@ Game.of.Thrones.S01E01.1080p.BluRay.x264-DEMAND.mkv
 
 - 📚 [完整功能文档](ENHANCED_README.md) - 详细的功能说明和使用指南
 - 🔧 [API配置指南](API_SETUP_GUIDE.md) - TMDb和豆瓣API的详细配置步骤
+- 📋 [vsmeta格式指南](VSMETA_FORMAT_GUIDE.md) - 群晖Video Station元数据格式说明
 - 🎮 [演示程序](video_renamer_enhanced_demo.py) - 运行演示了解所有功能
 
 ## 🚀 使用流程
