@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  opendevinai520:
+    build: .
+    container_name: opendevinai520
+    ports:
+      - "12000:12000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./downloads:/app/downloads
+      - ./logs:/app/logs
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - OPENDEVINAI520_ENV=production
+      - OPENDEVINAI520_DEBUG=false
+    restart: unless-stopped
+    networks:
+      - opendevinai520-network
+
+  # 可选: Redis缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: opendevinai520-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - opendevinai520-network
+
+  # 可选: PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: opendevinai520-postgres
+    environment:
+      POSTGRES_DB: opendevinai520
+      POSTGRES_USER: opendevinai520
+      POSTGRES_PASSWORD: opendevinai520_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - opendevinai520-network
+
+  # 可选: Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: opendevinai520-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - opendevinai520
+    restart: unless-stopped
+    networks:
+      - opendevinai520-network
+
+volumes:
+  redis-data:
+  postgres-data:
+
+networks:
+  opendevinai520-network:
+    driver: bridge
