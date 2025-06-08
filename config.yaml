@@ -1,0 +1,14 @@
+app:
+  debug: false
+  name: OpenDevinAI520
+  version: 1.0.0
+logging:
+  file_enabled: true
+  level: INFO
+tools:
+  enabled:
+  - code_formatter
+  - file_processor
+  - api_tester
+  - data_converter
+  - media_renamer

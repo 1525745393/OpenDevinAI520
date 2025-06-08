@@ -27,19 +27,25 @@ OpenDevinAI520 是一个实用工具开发平台，秉承"自用人人为我我�
 ```bash
 # 克隆项目
 git clone https://github.com/1525745393/OpenDevinAI520.git
-
-# 进入项目目录
 cd OpenDevinAI520
 
-# 安装依赖
-npm install
-# 或者
-pip install -r requirements.txt
+# 方式一：一键启动 (推荐)
+./start.sh              # 命令行模式
+./start.sh web          # Web界面模式
+./start.sh both         # 同时启动CLI和Web
 
-# 运行项目
-npm start
-# 或者
-python main.py
+# 方式二：完整部署
+./deploy.sh             # 完整部署流程
+./deploy.sh --dev web   # 开发模式
+
+# 方式三：Docker部署
+docker-compose up -d
+
+# 方式四：手动安装
+pip install -r requirements.txt
+mkdir -p logs uploads downloads temp
+python src/main.py      # 命令行模式
+python web/app.py       # Web模式
 ```
 
 ## 项目结构
