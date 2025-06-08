@@ -1,0 +1,48 @@
+{
+    "app_info": {
+        "name": "群晖Python应用",
+        "version": "1.0.0",
+        "description": "这是一个运行在群晖NAS上的Python应用程序",
+        "author": "OpenHands AI",
+        "created_time": "2025-06-08T20:47:58.557061"
+    },
+    "app_settings": {
+        "debug_mode": false,
+        "auto_start": true,
+        "check_interval": 60,
+        "max_log_size": 10,
+        "log_retention_days": 30
+    },
+    "network": {
+        "host": "0.0.0.0",
+        "port": 8080,
+        "timeout": 30,
+        "max_connections": 100
+    },
+    "database": {
+        "type": "sqlite",
+        "path": "data/app.db",
+        "backup_enabled": true,
+        "backup_interval": 24
+    },
+    "security": {
+        "enable_auth": false,
+        "session_timeout": 3600,
+        "max_login_attempts": 5,
+        "password_min_length": 8
+    },
+    "notifications": {
+        "email_enabled": false,
+        "email_smtp_server": "",
+        "email_smtp_port": 587,
+        "email_username": "",
+        "email_password": "",
+        "notification_level": "error"
+    },
+    "custom": {
+        "user_name": "admin",
+        "language": "zh-CN",
+        "theme": "default",
+        "timezone": "Asia/Shanghai"
+    }
+}
