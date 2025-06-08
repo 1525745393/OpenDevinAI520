@@ -1,0 +1,39 @@
+{
+  "tests": [
+    {
+      "name": "获取用户列表",
+      "url": "https://jsonplaceholder.typicode.com/users",
+      "method": "GET",
+      "expected_status": 200
+    },
+    {
+      "name": "获取单个用户",
+      "url": "https://jsonplaceholder.typicode.com/users/1",
+      "method": "GET",
+      "expected_status": 200
+    },
+    {
+      "name": "创建新用户",
+      "url": "https://jsonplaceholder.typicode.com/users",
+      "method": "POST",
+      "data": {
+        "name": "Test User",
+        "username": "testuser",
+        "email": "test@example.com"
+      },
+      "expected_status": 201
+    },
+    {
+      "name": "获取文章列表",
+      "url": "https://jsonplaceholder.typicode.com/posts",
+      "method": "GET",
+      "expected_status": 200
+    },
+    {
+      "name": "获取评论列表",
+      "url": "https://jsonplaceholder.typicode.com/comments",
+      "method": "GET",
+      "expected_status": 200
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+site_name: OpenDevinAI520 文档
+site_description: 实用工具开发平台 - 自用人人为我我为人人
+site_author: OpenDevinAI520 Team
+site_url: https://1525745393.github.io/OpenDevinAI520/
+
+repo_name: 1525745393/OpenDevinAI520
+repo_url: https://github.com/1525745393/OpenDevinAI520
+
+theme:
+  name: material
+  language: zh
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+nav:
+  - 首页: index.md
+  - 快速开始: quick-start.md
+  - 工具指南:
+    - 概览: tools-guide.md
+    - 代码格式化工具: tools/code-formatter.md
+    - 文件批量处理工具: tools/file-processor.md
+    - API测试工具: tools/api-tester.md
+    - 数据转换工具: tools/data-converter.md
+    - 影视文件重命名工具: tools/media-renamer.md
+  - API文档: api-reference.md
+  - 配置说明: configuration.md
+  - 开发指南:
+    - 开发环境搭建: development.md
+    - 贡献指南: contributing.md
+    - 插件开发: plugin-development.md
+  - 更新日志: changelog.md
+
+plugins:
+  - search:
+      lang: zh
+  - mermaid2
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid
+  - pymdownx.tabbed
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/1525745393/OpenDevinAI520
+    - icon: fontawesome/solid/envelope
+      link: mailto:contact@opendevinai520.com
+
+copyright: Copyright &copy; 2025 OpenDevinAI520 Team

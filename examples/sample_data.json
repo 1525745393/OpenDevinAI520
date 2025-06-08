@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "张三",
+    "age": 25,
+    "email": "zhangsan@example.com",
+    "city": "北京",
+    "department": "技术部",
+    "salary": 8000,
+    "join_date": "2023-01-15"
+  },
+  {
+    "id": 2,
+    "name": "李四",
+    "age": 28,
+    "email": "lisi@example.com",
+    "city": "上海",
+    "department": "产品部",
+    "salary": 9500,
+    "join_date": "2022-08-20"
+  },
+  {
+    "id": 3,
+    "name": "王五",
+    "age": 30,
+    "email": "wangwu@example.com",
+    "city": "深圳",
+    "department": "设计部",
+    "salary": 7500,
+    "join_date": "2023-03-10"
+  },
+  {
+    "id": 4,
+    "name": "赵六",
+    "age": 26,
+    "email": "zhaoliu@example.com",
+    "city": "广州",
+    "department": "技术部",
+    "salary": 8500,
+    "join_date": "2023-05-01"
+  },
+  {
+    "id": 5,
+    "name": "钱七",
+    "age": 32,
+    "email": "qianqi@example.com",
+    "city": "杭州",
+    "department": "运营部",
+    "salary": 7000,
+    "join_date": "2022-12-15"
+  }
+]

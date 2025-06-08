@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- 欢迎区域 -->
+<div class="hero-section bg-primary text-white rounded p-5 mb-5">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="display-4 fw-bold">OpenDevinAI520</h1>
+            <p class="lead">实用工具开发平台 - 自用人人为我我为人人</p>
+            <p class="mb-4">致力于创建高效便民的开发工具集，提高开发效率，简化日常工作流程。</p>
+            <a href="#tools" class="btn btn-light btn-lg">
+                <i class="fas fa-rocket"></i> 开始使用
+            </a>
+        </div>
+        <div class="col-md-4 text-center">
+            <i class="fas fa-tools fa-8x opacity-75"></i>
+        </div>
+    </div>
+</div>
+
+<!-- 特色功能 -->
+<div class="row mb-5">
+    <div class="col-md-3 text-center mb-4">
+        <div class="feature-icon bg-primary text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+            <i class="fas fa-rocket fa-2x"></i>
+        </div>
+        <h5>高效实用</h5>
+        <p class="text-muted">专注于解决实际开发中的痛点问题</p>
+    </div>
+    <div class="col-md-3 text-center mb-4">
+        <div class="feature-icon bg-success text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+            <i class="fas fa-handshake fa-2x"></i>
+        </div>
+        <h5>开源共享</h5>
+        <p class="text-muted">人人为我，我为人人的开源精神</p>
+    </div>
+    <div class="col-md-3 text-center mb-4">
+        <div class="feature-icon bg-info text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+            <i class="fas fa-toolbox fa-2x"></i>
+        </div>
+        <h5>工具集合</h5>
+        <p class="text-muted">涵盖多种开发场景的实用工具</p>
+    </div>
+    <div class="col-md-3 text-center mb-4">
+        <div class="feature-icon bg-warning text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+            <i class="fas fa-book fa-2x"></i>
+        </div>
+        <h5>易于使用</h5>
+        <p class="text-muted">简洁明了的API设计和详细的文档</p>
+    </div>
+</div>
+
+<!-- 工具列表 -->
+<div id="tools" class="mb-5">
+    <h2 class="text-center mb-4">🛠️ 可用工具</h2>
+    <div class="row">
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 tool-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-code text-primary fa-2x me-3"></i>
+                        <h5 class="card-title mb-0">代码格式化工具</h5>
+                    </div>
+                    <p class="card-text">支持多种编程语言的代码格式化，自动检测文件类型，批量处理功能。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('tool_page', tool_name='code_formatter') }}" class="btn btn-primary">使用工具</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 tool-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-folder text-success fa-2x me-3"></i>
+                        <h5 class="card-title mb-0">文件批量处理工具</h5>
+                    </div>
+                    <p class="card-text">批量重命名、复制、移动文件，查找重复文件，按类型组织文件。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('tool_page', tool_name='file_processor') }}" class="btn btn-success">使用工具</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 tool-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-network-wired text-info fa-2x me-3"></i>
+                        <h5 class="card-title mb-0">API测试工具</h5>
+                    </div>
+                    <p class="card-text">HTTP API接口测试，批量测试支持，负载测试功能，API监控和报告生成。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('tool_page', tool_name='api_tester') }}" class="btn btn-info">使用工具</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 tool-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-exchange-alt text-warning fa-2x me-3"></i>
+                        <h5 class="card-title mb-0">数据转换工具</h5>
+                    </div>
+                    <p class="card-text">JSON、CSV、XML、YAML格式互转，数据格式化和压缩，智能类型检测。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('tool_page', tool_name='data_converter') }}" class="btn btn-warning">使用工具</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 tool-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-film text-danger fa-2x me-3"></i>
+                        <h5 class="card-title mb-0">影视文件重命名工具</h5>
+                    </div>
+                    <p class="card-text">智能识别电影和电视剧文件，自动提取标题、年份、季集信息，支持自定义命名模式。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('tool_page', tool_name='media_renamer') }}" class="btn btn-danger">使用工具</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 tool-card border-dashed">
+                <div class="card-body text-center d-flex flex-column justify-content-center">
+                    <i class="fas fa-plus-circle text-muted fa-3x mb-3"></i>
+                    <h5 class="card-title text-muted">更多工具</h5>
+                    <p class="card-text text-muted">正在开发中...</p>
+                    <a href="https://github.com/1525745393/OpenDevinAI520/issues" target="_blank" class="btn btn-outline-secondary">
+                        提出建议
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快速开始 -->
+<div class="bg-light rounded p-4 mb-5">
+    <h3 class="text-center mb-4">🚀 快速开始</h3>
+    <div class="row">
+        <div class="col-md-4 text-center mb-3">
+            <div class="step-number bg-primary text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                1
+            </div>
+            <h5>选择工具</h5>
+            <p class="text-muted">从上方工具列表中选择您需要的工具</p>
+        </div>
+        <div class="col-md-4 text-center mb-3">
+            <div class="step-number bg-primary text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                2
+            </div>
+            <h5>配置参数</h5>
+            <p class="text-muted">根据需要配置工具参数和选项</p>
+        </div>
+        <div class="col-md-4 text-center mb-3">
+            <div class="step-number bg-primary text-white rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                3
+            </div>
+            <h5>执行任务</h5>
+            <p class="text-muted">点击执行按钮，查看处理结果</p>
+        </div>
+    </div>
+</div>
+
+<!-- 统计信息 -->
+<div class="row text-center mb-5">
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <h3 class="text-primary fw-bold">5+</h3>
+            <p class="text-muted">实用工具</p>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <h3 class="text-success fw-bold">100%</h3>
+            <p class="text-muted">开源免费</p>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <h3 class="text-info fw-bold">24/7</h3>
+            <p class="text-muted">随时可用</p>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <h3 class="text-warning fw-bold">MIT</h3>
+            <p class="text-muted">开源许可</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.tool-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border: 1px solid #dee2e6;
+}
+
+.tool-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.border-dashed {
+    border-style: dashed !important;
+    border-color: #dee2e6 !important;
+}
+
+.stat-card h3 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.step-number {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+</style>
+{% endblock %}
