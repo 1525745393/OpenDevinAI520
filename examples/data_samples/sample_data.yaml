@@ -1,0 +1,16 @@
+employees:
+  - id: 1
+    name: 张三
+    age: 25
+    city: 北京
+    salary: 8000
+  - id: 2
+    name: 李四
+    age: 30
+    city: 上海
+    salary: 12000
+  - id: 3
+    name: 王五
+    age: 28
+    city: 广州
+    salary: 10000

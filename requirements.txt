@@ -18,3 +18,13 @@ mkdocs-material>=8.5.0
 python-dotenv>=0.19.0
 colorama>=0.4.5
 tqdm>=4.64.0
+
+# 数据处理和转换
+pandas>=1.5.0
+openpyxl>=3.0.0
+PyYAML>=6.0
+lxml>=4.9.0
+
+# 代码格式化
+autopep8>=1.6.0
+js-beautify>=1.14.0

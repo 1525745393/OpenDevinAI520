@@ -12,13 +12,13 @@ OpenDevinAI520 提供了一系列实用的开发工具，每个工具都有完�
 
 ```bash
 # 格式化单个文件
-python -m tools.code_formatter file.py
+python -m src.tools.code_formatter file.py
 
 # 格式化目录（递归）
-python -m tools.code_formatter ./src --recursive
+python -m src.tools.code_formatter ./src --recursive
 
 # 显示详细报告
-python -m tools.code_formatter ./src --report
+python -m src.tools.code_formatter ./src --report
 ```
 
 #### Python API
@@ -242,6 +242,72 @@ results = tester.batch_test(test_cases)
 4. 查看生成的日志文件
 
 ## 扩展开发
+
+## 新增工具
+
+### 4. 影视文件重命名工具 (media_renamer)
+
+智能识别并重命名电影、电视剧文件。
+
+#### 命令行使用
+
+```bash
+# 重命名媒体文件（预览模式）
+python -m src.tools.media_renamer rename ./media --preview
+
+# 实际重命名
+python -m src.tools.media_renamer rename ./media
+
+# 按类型组织文件
+python -m src.tools.media_renamer organize ./media
+```
+
+#### 支持的格式
+- 视频文件：.mp4, .mkv, .avi, .mov, .wmv, .flv, .webm 等
+- 命名模式：S01E01, 1x01, 年份识别, 质量标识等
+
+### 5. 数据转换工具 (data_converter)
+
+支持多种数据格式之间的转换。
+
+#### 命令行使用
+
+```bash
+# 单文件转换
+python -m src.tools.data_converter convert input.csv output.json
+
+# 批量转换
+python -m src.tools.data_converter batch ./input_dir ./output_dir csv json
+
+# 合并文件
+python -m src.tools.data_converter merge output.json file1.json file2.json
+
+# 拆分文件
+python -m src.tools.data_converter split large_file.csv ./output_dir --by rows --size 1000
+```
+
+#### 支持的格式
+- JSON, CSV, XML, YAML, Excel, TSV, Parquet, HTML
+
+### 6. 开发环境配置工具 (env_configurator)
+
+快速配置各种开发环境。
+
+#### 命令行使用
+
+```bash
+# 查看系统信息
+python -m src.tools.env_configurator info
+
+# 配置Python环境
+python -m src.tools.env_configurator python ./my_project
+
+# 配置Node.js环境
+python -m src.tools.env_configurator nodejs ./my_app
+
+# 完整环境配置
+python -m src.tools.env_configurator full ./my_project --type python
+```
 
 ### 添加新工具
 

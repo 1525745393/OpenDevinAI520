@@ -193,6 +193,7 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./site
+        enable_jekyll: false
 
   release:
     needs: [test, security, build]
