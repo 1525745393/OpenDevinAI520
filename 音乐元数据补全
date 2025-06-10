@@ -1,1 +1,330 @@
- 
+import os
+import re
+import logging
+import argparse
+import time
+import json
+import sqlite3
+import requests
+from mutagen import File
+import concurrent.futures
+from pathlib import Path
+from datetime import datetime
+
+# ============ 配置 ==============
+class Config:
+    def __init__(self):
+        self.LASTFM_API_KEY = "fa4db6d9a7da2b1b581848e97a37d417"
+        self.LOG_FILE = "music_metadata.log"
+        self.DEFAULT_FOLDER = "./music"
+        self.DEFAULT_MAX_WORKERS = 8
+        self.AUDIO_EXTENSIONS = ['.flac', '.mp3', '.ape', '.wav', '.m4a', '.ogg', '.aac']
+        self.CACHE_DB = "metadata_cache.db"
+        self.MIN_CONFIDENCE = 0.5
+        
+    def load_from_file(self, config_file):
+        if os.path.exists(config_file):
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                for key, value in config.items():
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+
+config = Config()
+
+# ============ 缓存系统 ==============
+class MetadataCache:
+    def __init__(self, db_file):
+        self.db_file = db_file
+        self.init_db()
+
+    def init_db(self):
+        with sqlite3.connect(self.db_file) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS metadata_cache (
+                    source TEXT,
+                    title TEXT,
+                    artist TEXT,
+                    result TEXT,
+                    timestamp DATETIME,
+                    PRIMARY KEY (source, title, artist)
+                )
+            """)
+
+    def get(self, source, title, artist):
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.execute(
+                "SELECT result FROM metadata_cache WHERE source=? AND title=? AND artist=?",
+                (source, title or "", artist or "")
+            )
+            result = cursor.fetchone()
+            return json.loads(result[0]) if result else None
+
+    def set(self, source, title, artist, result):
+        with sqlite3.connect(self.db_file) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO metadata_cache VALUES (?, ?, ?, ?, ?)",
+                (source, title or "", artist or "", json.dumps(result), datetime.now())
+            )
+
+# ============ 初始化 ==============
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[
+        logging.FileHandler(config.LOG_FILE, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+cache = MetadataCache(config.CACHE_DB)
+
+# ============ 文件名解析 ==============
+class FilenameParser:
+    @staticmethod
+    def clean_filename(name: str) -> str:
+        """去除常见无用修饰信息和括号内容"""
+        # 移除括号及其内容
+        name = re.sub(r'[\[\(\{【（『「][^\]\)\}】）』」]*[\]\)\}】）』」]', '', name)
+        
+        # 移除常见修饰词
+        patterns = [
+            r'(官方|无损|320K|MV)',
+            r'(FLAC|APE|WAV|mp3)',
+            r'(伴奏|现场|原版|试听版)',
+            r'(Live|Remix|Demo|Acoustic|Edit|Mix|Session)',
+            r'(KTV|伴唱|纯音乐|Instrumental)',
+            r'(版|正版|HQ|HD|Hi-Res|HiRes|DSD|Single)'
+        ]
+        for pattern in patterns:
+            name = re.sub(pattern, '', name, flags=re.I)
+        return name.strip()
+
+    @staticmethod
+    def extract_keywords(filename: str) -> tuple:
+        """智能解析文件名，返回 (歌名, 歌手, 置信度)"""
+        base = Path(filename).stem
+        name_part = FilenameParser.clean_filename(base)
+        
+        # 处理 feat/ft 格式
+        feat_pattern = re.compile(r'(.+?)\s*(?:feat\.|ft\.|Feat|Ft)\s*(.+)', re.I)
+        if match := feat_pattern.match(name_part):
+            artist, title = match.groups()
+            return title.strip(), artist.strip(), 0.95
+
+        # 常见分隔符
+        delimiters = [
+            ' - ', '-', '_', '–', '—', '|', ':', '：', 
+            '.', '·', '/', '\\', ' feat. ', ' ft. ', 
+            ' Feat ', ' Ft ', '&'
+        ]
+        
+        # 处理分隔符分割的情况
+        for delim in delimiters:
+            if delim in name_part:
+                parts = [p.strip() for p in name_part.split(delim) if p.strip()]
+                if len(parts) == 2:
+                    # 根据部分长度判断顺序
+                    if len(parts[0]) <= 8 and len(parts[1]) > 1:
+                        return parts[1], parts[0], 0.85
+                    return parts[0], parts[1], 0.8
+                elif len(parts) > 2:
+                    return parts[-1], " & ".join(parts[:-1]), 0.6
+
+        # 处理中文书名号
+        if match := re.match(r'(.+)[《](.+)[》]', name_part):
+            artist, title = match.groups()
+            return title.strip(), artist.strip(), 0.9
+
+        # 处理括号
+        if match := re.match(r'(.+)[（(](.+)[)）]', name_part):
+            title, artist = match.groups()
+            return title.strip(), artist.strip(), 0.85
+
+        return name_part, None, 0.4
+
+# ============ API 请求 ==============
+class APIClient:
+    @staticmethod
+    def robust_request(url, params=None, headers=None, retries=3, delay=2):
+        """带重试的网络请求"""
+        for i in range(retries):
+            try:
+                resp = requests.get(url, params=params, headers=headers, timeout=10)
+                if resp.ok:
+                    return resp
+            except Exception as e:
+                logging.warning(f"请求失败 (第{i+1}次): {e}")
+                if i < retries - 1:  # 不是最后一次重试
+                    time.sleep(delay * (i + 1))  # 递增延迟
+        return None
+
+    @staticmethod
+    def search_musicbrainz(title, artist=None):
+        """查询 MusicBrainz"""
+        if not title:
+            return {}
+            
+        # 检查缓存
+        if result := cache.get("MB", title, artist):
+            return result
+
+        # 构建查询
+        query = f'recording:"{title}"'
+        if artist:
+            query += f' AND artist:"{artist}"'
+
+        url = 'https://musicbrainz.org/ws/2/recording/'
+        headers = {'User-Agent': 'MetaTagger/2.0 (your@email.com)'}
+        params = {'query': query, 'fmt': 'json'}
+
+        if resp := APIClient.robust_request(url, params=params, headers=headers):
+            try:
+                data = resp.json()
+                if data.get('recordings'):
+                    rec = data['recordings'][0]
+                    result = {
+                        'title': rec.get('title'),
+                        'artist': rec['artist-credit'][0]['name'],
+                        'album': rec['releases'][0]['title'] if rec.get('releases') else '',
+                        'date': rec['releases'][0].get('date', '') if rec.get('releases') else '',
+                    }
+                    cache.set("MB", title, artist, result)
+                    return result
+            except Exception as e:
+                logging.error(f"MusicBrainz数据解析错误: {e}")
+
+        cache.set("MB", title, artist, {})
+        return {}
+
+    @staticmethod
+    def search_lastfm(title, artist):
+        """查询 Last.fm"""
+        if not title or not artist:
+            return {}
+
+        # 检查缓存
+        if result := cache.get("LF", title, artist):
+            return result
+
+        params = {
+            "method": "track.getInfo",
+            "api_key": config.LASTFM_API_KEY,
+            "artist": artist,
+            "track": title,
+            "format": "json"
+        }
+
+        if resp := APIClient.robust_request("https://ws.audioscrobbler.com/2.0/", params=params):
+            try:
+                data = resp.json()
+                if "track" in data:
+                    track = data["track"]
+                    result = {
+                        "title": track.get("name"),
+                        "artist": track.get("artist", {}).get("name"),
+                        "album": track.get("album", {}).get("title", ''),
+                        "date": ''
+                    }
+                    cache.set("LF", title, artist, result)
+                    return result
+            except Exception as e:
+                logging.error(f"Last.fm数据解析错误: {e}")
+
+        cache.set("LF", title, artist, {})
+        return {}
+
+# ============ 元数据处理 ==============
+class MetadataProcessor:
+    @staticmethod
+    def fill_metadata(audio_path):
+        """补全单个音频文件的元数据"""
+        try:
+            # 打开音频文件
+            audio = File(audio_path, easy=True)
+            if audio is None or audio.tags is None:
+                logging.warning(f"[跳过] 不支持或损坏的文件: {audio_path}")
+                return
+
+            # 检查是否需要补全
+            missing = [field for field in ['title', 'artist', 'album'] 
+                      if field not in audio or not audio[field]]
+            if not missing:
+                logging.debug(f"跳过已有元数据: {Path(audio_path).name}")
+                return
+
+            # 解析文件名
+            title, artist, conf = FilenameParser.extract_keywords(audio_path)
+            logging.info(f"解析: {Path(audio_path).name} | "
+                        f"歌名={title} 歌手={artist} 置信度={conf:.2f}")
+
+            # 置信度检查
+            if conf < config.MIN_CONFIDENCE:
+                logging.warning(f"文件名解析置信度低: {audio_path} ({conf:.2f})")
+
+            # 查询元数据
+            result = APIClient.search_musicbrainz(title, artist)
+            if not result:
+                logging.info(f"MusicBrainz未命中，尝试Last.fm: {Path(audio_path).name}")
+                result = APIClient.search_lastfm(title, artist)
+
+            # 更新元数据
+            if result:
+                for k, v in result.items():
+                    if v and (k not in audio or not audio[k]):
+                        audio[k] = v
+                audio.save()
+                logging.info(f"成功补全: {Path(audio_path).name} → {result}")
+            else:
+                logging.warning(f"未能补全: {Path(audio_path).name}")
+
+        except Exception as e:
+            logging.error(f"处理异常: {audio_path} | {e}")
+
+    @staticmethod
+    def process_folder(folder, max_workers=None):
+        """并行处理文件夹"""
+        # 收集音频文件
+        audio_files = []
+        for ext in config.AUDIO_EXTENSIONS:
+            audio_files.extend(Path(folder).rglob(f"*{ext}"))
+
+        if not audio_files:
+            logging.warning(f"未发现音频文件于目录: {folder}")
+            return
+
+        # 设置并行数
+        max_workers = max_workers or config.DEFAULT_MAX_WORKERS
+        workers = max(1, min(max_workers, len(audio_files)//5 + 1))
+        
+        logging.info(f"批量处理音频文件: {len(audio_files)}个，线程数: {workers}")
+        
+        # 并行处理
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            list(executor.map(MetadataProcessor.fill_metadata, audio_files))
+
+def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(
+        description="音乐元数据补全工具 2.0 - 支持多种音频格式的元数据自动补全"
+    )
+    parser.add_argument('-f', '--folder', type=str, 
+                        default=config.DEFAULT_FOLDER, 
+                        help="音频文件目录路径")
+    parser.add_argument('-w', '--workers', type=int,
+                        default=config.DEFAULT_MAX_WORKERS,
+                        help="最大并行线程数")
+    parser.add_argument('-c', '--config', type=str,
+                        help="自定义配置文件路径")
+    
+    args = parser.parse_args()
+    
+    # 加载配置
+    if args.config:
+        config.load_from_file(args.config)
+    
+    # 处理目录
+    MetadataProcessor.process_folder(args.folder, args.workers)
+
+if __name__ == "__main__":
+    main() 
