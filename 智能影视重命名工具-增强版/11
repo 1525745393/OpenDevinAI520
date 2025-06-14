@@ -1,0 +1,2024 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+智能影视文件重命名工具 - 增强版
+作者: OpenHands AI
+版本: 2.2.0
+描述: 集成TMDb和豆瓣API的智能影视文件重命名工具，支持元数据合并和性能优化
+"""
+
+import os
+import sys
+import re
+import json
+import logging
+import platform
+import datetime
+import time
+import hashlib
+import urllib.request
+import urllib.parse
+import urllib.error
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple, Union, Set
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass, asdict
+import threading
+import queue
+import shutil
+import math
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache, wraps
+
+# 配置日志记录
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("video_renamer.log", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger("VideoRenamer")
+
+def timing_decorator(func):
+    """性能计时装饰器"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"{func.__name__} 执行时间: {end_time - start_time:.2f}秒")
+        return result
+    return wrapper
+
+@dataclass
+class VideoInfo:
+    """视频文件信息类"""
+    file_path: str
+    file_name: str
+    extension: str
+    title: Optional[str] = None
+    year: Optional[int] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    is_tv_show: bool = False
+    quality: Optional[str] = None
+    group: Optional[str] = None
+    
+    def get_base_name(self) -> str:
+        """获取不带扩展名的文件名"""
+        return os.path.splitext(self.file_name)[0]
+
+@dataclass
+class MovieMetadata:
+    """
+    电影元数据类
+    
+    存储从API获取的详细电影信息
+    """
+    tmdb_id: Optional[int] = None
+    douban_id: Optional[str] = None
+    imdb_id: str = ""
+    title: str = ""
+    original_title: str = ""
+    chinese_title: str = ""
+    year: int = 0
+    release_date: str = ""
+    runtime: int = 0
+    budget: int = 0
+    revenue: int = 0
+    genres: List[str] = None
+    director: str = ""
+    writer: str = ""
+    producer: str = ""
+    cinematographer: str = ""
+    editor: str = ""
+    composer: str = ""
+    cast: List[Dict[str, str]] = None  # 包含name, role, thumbnail
+    crew: List[Dict[str, str]] = None  # 包含name, job, thumbnail
+    plot: str = ""
+    tagline: str = ""
+    rating_tmdb: float = 0.0
+    rating_imdb: float = 0.0
+    rating_douban: float = 0.0
+    vote_count: int = 0
+    popularity: float = 0.0
+    poster_url: str = ""
+    backdrop_url: str = ""
+    homepage: str = ""
+    language: str = ""
+    country: str = ""
+    certification: str = ""
+    production_companies: List[str] = None
+    trailers: List[Dict[str, str]] = None  # 包含type, key, site
+    
+    def __post_init__(self):
+        if self.genres is None:
+            self.genres = []
+        if self.cast is None:
+            self.cast = []
+        if self.crew is None:
+            self.crew = []
+        if self.production_companies is None:
+            self.production_companies = []
+        if self.trailers is None:
+            self.trailers = []
+    
+    def __hash__(self):
+        """为元数据对象生成哈希值，加速比较"""
+        return hash((self.tmdb_id, self.imdb_id, self.title, self.year))
+
+@dataclass
+class TVMetadata:
+    """
+    电视剧元数据类
+    
+    存储从API获取的详细电视剧信息
+    """
+    tmdb_id: Optional[int] = None
+    douban_id: Optional[str] = None
+    title: str = ""
+    original_title: str = ""
+    chinese_title: str = ""
+    year: int = 0
+    first_air_date: str = ""
+    last_air_date: str = ""
+    status: str = ""
+    in_production: bool = False
+    episode_runtime: List[int] = None
+    number_of_seasons: int = 0
+    number_of_episodes: int = 0
+    next_episode_to_air: Optional[Dict[str, Any]] = None
+    last_episode_to_air: Optional[Dict[str, Any]] = None
+    genres: List[str] = None
+    creator: str = ""
+    writer: str = ""
+    director: str = ""
+    cast: List[Dict[str, str]] = None  # 包含name, role, thumbnail
+    crew: List[Dict[str, str]] = None  # 包含name, job, thumbnail
+    plot: str = ""
+    tagline: str = ""
+    rating_tmdb: float = 0.0
+    rating_douban: float = 0.0
+    vote_count: int = 0
+    popularity: float = 0.0
+    poster_url: str = ""
+    backdrop_url: str = ""
+    homepage: str = ""
+    language: str = ""
+    country: str = ""
+    production_companies: List[str] = None
+    
+    def __post_init__(self):
+        if self.episode_runtime is None:
+            self.episode_runtime = []
+        if self.genres is None:
+            self.genres = []
+        if self.cast is None:
+            self.cast = []
+        if self.crew is None:
+            self.crew = []
+        if self.production_companies is None:
+            self.production_companies = []
+    
+    def __hash__(self):
+        return hash((self.tmdb_id, self.title, self.year))
+
+@dataclass
+class EpisodeMetadata:
+    """
+    电视剧集元数据类
+    
+    存储单集详细信息
+    """
+    title: str = ""
+    season_number: int = 0
+    episode_number: int = 0
+    overview: str = ""
+    air_date: str = ""
+    runtime: int = 0
+    rating: float = 0.0
+    vote_count: int = 0
+    director: str = ""
+    writer: str = ""
+    guest_stars: List[str] = None
+    production_code: str = ""
+    still_url: str = ""
+    
+    def __post_init__(self):
+        if self.guest_stars is None:
+            self.guest_stars = []
+
+class APIClient:
+    """
+    API客户端基类
+    
+    提供通用的API调用功能
+    """
+    
+    def __init__(self, base_url: str, headers: Dict[str, str] = None):
+        """
+        初始化API客户端
+        
+        参数:
+            base_url (str): API基础URL
+            headers (Dict[str, str]): 请求头
+        """
+        self.base_url = base_url
+        self.headers = headers or {}
+        self.session_cache = {}
+        self.rate_limit_delay = 0.5  # API调用间隔（秒）
+        self.last_request_time = 0
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def _make_request(self, endpoint: str, params: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
+        """
+        发起API请求
+        
+        参数:
+            endpoint (str): API端点
+            params (Dict[str, Any]): 请求参数
+        
+        返回:
+            Optional[Dict[str, Any]]: API响应数据
+        """
+        self.logger.debug(f"API请求: {endpoint}, 参数: {params}")
+        
+        try:
+            # 速率限制
+            current_time = time.time()
+            time_since_last = current_time - self.last_request_time
+            if time_since_last < self.rate_limit_delay:
+                self.logger.debug(f"速率限制: 等待 {self.rate_limit_delay - time_since_last:.2f} 秒")
+                time.sleep(self.rate_limit_delay - time_since_last)
+            
+            # 构建URL
+            url = f"{self.base_url}/{endpoint.lstrip('/')}"
+            if params:
+                query_string = urllib.parse.urlencode(params)
+                url = f"{url}?{query_string}"
+            
+            self.logger.debug(f"请求URL: {url}")
+            
+            # 创建请求
+            request = urllib.request.Request(url, headers=self.headers)
+            
+            # 发起请求
+            with urllib.request.urlopen(request, timeout=10) as response:
+                data = response.read().decode('utf-8')
+                self.last_request_time = time.time()
+                self.logger.debug(f"API响应成功, 状态码: {response.status}")
+                return json.loads(data)
+                
+        except urllib.error.HTTPError as e:
+            self.logger.warning(f"HTTP错误 {e.code}: {e.reason}, 端点: {endpoint}")
+            if e.code == 429:  # 速率限制
+                self.logger.info("收到429响应，重试前等待2秒")
+                time.sleep(2)
+                return self._make_request(endpoint, params)
+            return None
+        except urllib.error.URLError as e:
+            self.logger.warning(f"URL错误: {e.reason}, 端点: {endpoint}")
+            return None
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"JSON解析错误: {e}, 端点: {endpoint}")
+            return None
+        except Exception as e:
+            self.logger.error(f"API请求失败: {e}, 端点: {endpoint}")
+            return None
+    
+    async def _make_async_request(self, endpoint: str, params: Dict[str, Any] = None):
+        """异步API请求"""
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        if params:
+            url = f"{url}?{urllib.parse.urlencode(params)}"
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=self.headers) as response:
+                if response.status == 200:
+                    return await response.json()
+                return None
+    
+    async def batch_request(self, endpoints: List[str], params_list: List[Dict[str, Any]]):
+        """批量处理API请求，减少网络开销"""
+        tasks = [self._make_async_request(endpoint, params) 
+                for endpoint, params in zip(endpoints, params_list)]
+        return await asyncio.gather(*tasks)
+
+class TMDbClient(APIClient):
+    """
+    TMDb API客户端
+    
+    用于获取国际影视数据
+    """
+    
+    def __init__(self, api_key: str):
+        """
+        初始化TMDb客户端
+        
+        参数:
+            api_key (str): TMDb API密钥
+        """
+        super().__init__(
+            base_url="https://api.themoviedb.org/3",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json;charset=utf-8"
+            }
+        )
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def search_movie(self, title: str, year: Optional[int] = None) -> List[Dict[str, Any]]:
+        """搜索电影"""
+        self.logger.info(f"搜索电影: {title}, 年份: {year}")
+        params = {"query": title, "language": "zh-CN"}
+        if year:
+            params["year"] = year
+        
+        results = self._make_request("search/movie", params)
+        if results and "results" in results:
+            self.logger.info(f"找到 {len(results['results'])} 个电影结果")
+            return results["results"]
+        return []
+    
+    def get_movie_details(self, tmdb_id: int) -> Optional[Dict[str, Any]]:
+        """获取电影详细信息"""
+        self.logger.info(f"获取电影详情, TMDB ID: {tmdb_id}")
+        params = {"language": "zh-CN", "append_to_response": "credits,videos,release_dates"}
+        return self._make_request(f"movie/{tmdb_id}", params)
+    
+    def search_tv(self, title: str, year: Optional[int] = None) -> List[Dict[str, Any]]:
+        """搜索电视剧"""
+        self.logger.info(f"搜索电视剧: {title}, 年份: {year}")
+        params = {"query": title, "language": "zh-CN"}
+        if year:
+            params["first_air_date_year"] = year
+        
+        results = self._make_request("search/tv", params)
+        if results and "results" in results:
+            self.logger.info(f"找到 {len(results['results'])} 个电视剧结果")
+            return results["results"]
+        return []
+    
+    def get_tv_details(self, tmdb_id: int) -> Optional[Dict[str, Any]]:
+        """获取电视剧详细信息"""
+        self.logger.info(f"获取电视剧详情, TMDB ID: {tmdb_id}")
+        params = {"language": "zh-CN", "append_to_response": "credits,videos"}
+        return self._make_request(f"tv/{tmdb_id}", params)
+    
+    def get_tv_season_details(self, tmdb_id: int, season_number: int) -> Optional[Dict[str, Any]]:
+        """获取电视剧季详细信息"""
+        self.logger.info(f"获取电视剧季详情, TMDB ID: {tmdb_id}, 季数: {season_number}")
+        params = {"language": "zh-CN"}
+        return self._make_request(f"tv/{tmdb_id}/season/{season_number}", params)
+    
+    def get_tv_episode_details(self, tmdb_id: int, season_number: int, episode_number: int) -> Optional[Dict[str, Any]]:
+        """获取电视剧集详细信息"""
+        self.logger.info(f"获取电视剧集详情, TMDB ID: {tmdb_id}, 季数: {season_number}, 集数: {episode_number}")
+        params = {"language": "zh-CN"}
+        return self._make_request(f"tv/{tmdb_id}/season/{season_number}/episode/{episode_number}", params)
+
+class DoubanClient(APIClient):
+    """
+    豆瓣API客户端
+    
+    用于获取中文影视数据
+    """
+    
+    def __init__(self, api_key: str = ""):
+        """
+        初始化豆瓣客户端
+        
+        参数:
+            api_key (str): 豆瓣API密钥（如果有）
+        """
+        # 注意：豆瓣API已停止公开使用，这里使用替代方案
+        super().__init__(base_url="https://movie.douban.com")
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def search_movie(self, title: str) -> List[Dict[str, Any]]:
+        """搜索电影（使用豆瓣网页搜索）"""
+        self.logger.info(f"豆瓣搜索电影: {title}")
+        # 注意：这是一个简化的实现，实际应用需要处理反爬机制
+        results = []
+        # 实际应用中需要实现网页解析逻辑
+        self.logger.warning("豆瓣API已停止公开使用，此功能可能无法正常工作")
+        return results
+    
+    def get_movie_details(self, douban_id: str) -> Optional[Dict[str, Any]]:
+        """获取电影详细信息"""
+        self.logger.info(f"获取豆瓣电影详情, ID: {douban_id}")
+        # 实际应用中需要实现网页解析逻辑
+        self.logger.warning("豆瓣API已停止公开使用，此功能可能无法正常工作")
+        return None
+
+class ImdbClient(APIClient):
+    """
+    IMDb API客户端
+    
+    用于获取IMDb评分和详细信息
+    """
+    
+    def __init__(self, api_key: str):
+        """
+        初始化IMDb客户端
+        
+        参数:
+            api_key (str): IMDb API密钥
+        """
+        super().__init__(base_url=f"https://imdb-api.com/en/API")
+        self.api_key = api_key
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def get_movie_details(self, imdb_id: str) -> Optional[Dict[str, Any]]:
+        """获取电影详细信息"""
+        self.logger.info(f"获取IMDb电影详情, ID: {imdb_id}")
+        return self._make_request(f"Title/{self.api_key}/{imdb_id}")
+    
+    def search_movie(self, title: str) -> Optional[Dict[str, Any]]:
+        """搜索电影"""
+        self.logger.info(f"IMDb搜索电影: {title}")
+        return self._make_request(f"SearchMovie/{self.api_key}/{title}")
+
+class MetadataMerger:
+    """元数据合并器，用于整合来自不同来源的影视元数据"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        # 字段优先级配置
+        self.field_priority = {
+            "rating_tmdb": ["tmdb", "imdb", "douban"],
+            "rating_imdb": ["imdb", "tmdb", "douban"],
+            "rating_douban": ["douban", "tmdb", "imdb"],
+            "title": ["tmdb", "imdb", "douban"],
+            "plot": ["tmdb", "imdb", "douban"]
+        }
+    
+    @lru_cache(maxsize=128)
+    def merge_movie_metadata(self, *sources: MovieMetadata) -> MovieMetadata:
+        """
+        合并多个电影元数据来源
+        
+        参数:
+            *sources: 多个MovieMetadata对象
+        
+        返回:
+            MovieMetadata: 合并后的元数据
+        """
+        self.logger.info(f"合并电影元数据，来源数量: {len(sources)}")
+        
+        if not sources:
+            return MovieMetadata()
+        
+        # 使用第一个来源作为基础
+        merged = MovieMetadata(**asdict(sources[0]))
+        
+        # 合并其他来源
+        for source in sources[1:]:
+            if not source:
+                continue
+            
+            # 合并基本信息
+            for field in ["title", "original_title", "chinese_title", "year", "release_date", 
+                         "runtime", "budget", "revenue", "plot", "tagline", "homepage", 
+                         "language", "country", "certification"]:
+                # 使用优先级或非空值
+                if getattr(source, field) and not getattr(merged, field):
+                    setattr(merged, field, getattr(source, field))
+            
+            # 合并评分
+            for rating_field in ["rating_tmdb", "rating_imdb", "rating_douban"]:
+                source_value = getattr(source, rating_field)
+                merged_value = getattr(merged, rating_field)
+                
+                if source_value > merged_value:
+                    setattr(merged, rating_field, source_value)
+            
+            # 合并列表类字段
+            merged.genres = list(set(merged.genres + source.genres))
+            merged.production_companies = list(set(merged.production_companies + source.production_companies))
+            merged.trailers = self._merge_trailers(merged.trailers, source.trailers)
+            
+            # 合并人员信息
+            for person_field in ["director", "writer", "producer", "cinematographer", "editor", "composer"]:
+                if not getattr(merged, person_field) and getattr(source, person_field):
+                    setattr(merged, person_field, getattr(source, person_field))
+            
+            # 合并演员和工作人员
+            merged.cast = self._merge_cast(merged.cast, source.cast)
+            merged.crew = self._merge_crew(merged.crew, source.crew)
+        
+        return merged
+    
+    @lru_cache(maxsize=128)
+    def merge_tv_metadata(self, *sources: TVMetadata) -> TVMetadata:
+        """
+        合并多个电视剧元数据来源
+        
+        参数:
+            *sources: 多个TVMetadata对象
+        
+        返回:
+            TVMetadata: 合并后的元数据
+        """
+        self.logger.info(f"合并电视剧元数据，来源数量: {len(sources)}")
+        
+        if not sources:
+            return TVMetadata()
+        
+        # 使用第一个来源作为基础
+        merged = TVMetadata(**asdict(sources[0]))
+        
+        # 合并其他来源
+        for source in sources[1:]:
+            if not source:
+                continue
+            
+            # 合并基本信息
+            for field in ["title", "original_title", "chinese_title", "year", "first_air_date", 
+                         "last_air_date", "status", "in_production", "plot", "tagline", 
+                         "homepage", "language", "country"]:
+                if getattr(source, field) and not getattr(merged, field):
+                    setattr(merged, field, getattr(source, field))
+            
+            # 合并数值字段
+            for num_field in ["number_of_seasons", "number_of_episodes"]:
+                if getattr(source, num_field) > getattr(merged, num_field):
+                    setattr(merged, num_field, getattr(source, num_field))
+            
+            # 合并评分
+            for rating_field in ["rating_tmdb", "rating_douban"]:
+                source_value = getattr(source, rating_field)
+                merged_value = getattr(merged, rating_field)
+                
+                if source_value > merged_value:
+                    setattr(merged, rating_field, source_value)
+            
+            # 合并列表类字段
+            merged.genres = list(set(merged.genres + source.genres))
+            merged.production_companies = list(set(merged.production_companies + source.production_companies))
+            merged.episode_runtime = list(set(merged.episode_runtime + source.episode_runtime))
+            
+            # 合并人员信息
+            for person_field in ["creator", "director", "writer"]:
+                if not getattr(merged, person_field) and getattr(source, person_field):
+                    setattr(merged, person_field, getattr(source, person_field))
+            
+            # 合并演员和工作人员
+            merged.cast = self._merge_cast(merged.cast, source.cast)
+            merged.crew = self._merge_crew(merged.crew, source.crew)
+        
+        return merged
+    
+    def merge_episode_metadata(self, *sources: EpisodeMetadata) -> EpisodeMetadata:
+        """
+        合并多个剧集元数据来源
+        
+        参数:
+            *sources: 多个EpisodeMetadata对象
+        
+        返回:
+            EpisodeMetadata: 合并后的元数据
+        """
+        self.logger.info(f"合并剧集元数据，来源数量: {len(sources)}")
+        
+        if not sources:
+            return EpisodeMetadata()
+        
+        # 使用第一个来源作为基础
+        merged = EpisodeMetadata(**asdict(sources[0]))
+        
+        # 合并其他来源
+        for source in sources[1:]:
+            if not source:
+                continue
+            
+            # 合并基本信息
+            for field in ["title", "overview", "air_date", "runtime", 
+                         "director", "writer", "production_code", "still_url"]:
+                if getattr(source, field) and not getattr(merged, field):
+                    setattr(merged, field, getattr(source, field))
+            
+            # 合并评分
+            if source.rating > merged.rating:
+                merged.rating = source.rating
+            
+            # 合并客串明星
+            merged.guest_stars = list(set(merged.guest_stars + source.guest_stars))
+        
+        return merged
+    
+    def _merge_cast(self, cast1: List[Dict[str, str]], cast2: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """合并演员列表，避免重复"""
+        merged = []
+        seen = set()
+        
+        for actor in cast1 + cast2:
+            name = actor.get("name", "")
+            if name and name not in seen:
+                merged.append(actor)
+                seen.add(name)
+        
+        return merged
+    
+    def _merge_crew(self, crew1: List[Dict[str, str]], crew2: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """合并工作人员列表，避免重复"""
+        merged = []
+        seen = set()
+        
+        for crew_member in crew1 + crew2:
+            name = crew_member.get("name", "")
+            job = crew_member.get("job", "")
+            key = f"{name}_{job}"
+            
+            if key and key not in seen:
+                merged.append(crew_member)
+                seen.add(key)
+        
+        return merged
+    
+    def _merge_trailers(self, trailers1: List[Dict[str, str]], trailers2: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """合并预告片列表，避免重复"""
+        merged = []
+        keys = set()
+        
+        for trailer in trailers1 + trailers2:
+            key = trailer.get("key", "")
+            if key and key not in keys:
+                merged.append(trailer)
+                keys.add(key)
+        
+        return merged
+
+class FileDownloader:
+    """文件下载器，用于并行下载多个文件"""
+    
+    def __init__(self, max_workers: int = 5):
+        self.max_workers = max_workers
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def download_files_parallel(self, urls: List[str], save_paths: List[str]):
+        """并行下载多个文件"""
+        self.logger.info(f"开始并行下载 {len(urls)} 个文件")
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = []
+            for url, path in zip(urls, save_paths):
+                if not url:
+                    continue
+                futures.append(executor.submit(self.download_file, url, path))
+            
+            # 等待所有下载完成
+            for future in futures:
+                try:
+                    future.result()
+                except Exception as e:
+                    self.logger.error(f"下载失败: {e}")
+        
+        self.logger.info("所有文件下载完成")
+    
+    def download_file(self, url: str, save_path: str) -> bool:
+        """下载单个文件"""
+        try:
+            # 创建保存目录（如果不存在）
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            
+            # 检查文件是否已存在
+            if os.path.exists(save_path):
+                self.logger.info(f"文件已存在，跳过下载: {save_path}")
+                return True
+            
+            self.logger.info(f"开始下载: {url}")
+            self.logger.info(f"保存路径: {save_path}")
+            
+            # 下载文件
+            with urllib.request.urlopen(url) as response, open(save_path, 'wb') as out_file:
+                shutil.copyfileobj(response, out_file)
+            
+            self.logger.info(f"下载完成: {save_path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"下载失败: {url}, 错误: {e}")
+            return False
+
+class SynologyMetadataGenerator:
+    """群晖视频站元数据生成器"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def generate_movie_nfo(self, metadata: MovieMetadata, file_path: str) -> str:
+        """生成电影NFO文件"""
+        self.logger.info(f"生成电影NFO文件: {file_path}")
+        
+        # 创建根元素
+        movie = ET.Element("movie")
+        
+        # 添加基本信息
+        ET.SubElement(movie, "title").text = metadata.title
+        ET.SubElement(movie, "originaltitle").text = metadata.original_title
+        ET.SubElement(movie, "sorttitle").text = metadata.title
+        ET.SubElement(movie, "year").text = str(metadata.year)
+        ET.SubElement(movie, "releasedate").text = metadata.release_date
+        ET.SubElement(movie, "runtime").text = str(metadata.runtime)
+        ET.SubElement(movie, "plot").text = metadata.plot
+        ET.SubElement(movie, "tagline").text = metadata.tagline
+        
+        # 添加评分
+        rating = ET.SubElement(movie, "rating")
+        rating.set("name", "TMDb")
+        rating.set("max", "10")
+        rating.set("default", "true")
+        rating.text = str(metadata.rating_tmdb)
+        
+        if metadata.rating_imdb:
+            imdb_rating = ET.SubElement(movie, "rating")
+            imdb_rating.set("name", "IMDb")
+            imdb_rating.set("max", "10")
+            imdb_rating.text = str(metadata.rating_imdb)
+        
+        if metadata.rating_douban:
+            douban_rating = ET.SubElement(movie, "rating")
+            douban_rating.set("name", "豆瓣")
+            douban_rating.set("max", "10")
+            douban_rating.text = str(metadata.rating_douban)
+        
+        # 添加其他信息
+        ET.SubElement(movie, "votes").text = str(metadata.vote_count)
+        ET.SubElement(movie, "popularity").text = str(metadata.popularity)
+        ET.SubElement(movie, "imdbid").text = metadata.imdb_id
+        ET.SubElement(movie, "tmdbid").text = str(metadata.tmdb_id)
+        ET.SubElement(movie, "homepage").text = metadata.homepage
+        
+        # 添加流派
+        for genre in metadata.genres:
+            ET.SubElement(movie, "genre").text = genre
+        
+        # 添加国家
+        if metadata.country:
+            ET.SubElement(movie, "country").text = metadata.country
+        
+        # 添加语言
+        if metadata.language:
+            ET.SubElement(movie, "language").text = metadata.language
+        
+        # 添加认证
+        if metadata.certification:
+            ET.SubElement(movie, "mpaa").text = metadata.certification
+        
+        # 添加制作公司
+        for company in metadata.production_companies:
+            ET.SubElement(movie, "studio").text = company
+        
+        # 添加导演
+        if metadata.director:
+            ET.SubElement(movie, "director").text = metadata.director
+        
+        # 添加编剧
+        if metadata.writer:
+            ET.SubElement(movie, "writer").text = metadata.writer
+        
+        # 添加制片人
+        if metadata.producer:
+            ET.SubElement(movie, "producer").text = metadata.producer
+        
+        # 添加摄影指导
+        if metadata.cinematographer:
+            ET.SubElement(movie, "credits").text = metadata.cinematographer
+        
+        # 添加剪辑
+        if metadata.editor:
+            ET.SubElement(movie, "editor").text = metadata.editor
+        
+        # 添加配乐
+        if metadata.composer:
+            ET.SubElement(movie, "composer").text = metadata.composer
+        
+        # 添加演员
+        if metadata.cast:
+            actors = ET.SubElement(movie, "actors")
+            for i, actor in enumerate(metadata.cast[:20]):  # 限制为前20个演员
+                actor_elem = ET.SubElement(actors, "actor")
+                ET.SubElement(actor_elem, "name").text = actor.get("name", "")
+                ET.SubElement(actor_elem, "role").text = actor.get("role", "")
+                if actor.get("thumbnail"):
+                    ET.SubElement(actor_elem, "thumb").text = actor.get("thumbnail")
+        
+        # 添加图片信息
+        if metadata.poster_url:
+            thumb = ET.SubElement(movie, "thumb")
+            thumb.set("aspect", "poster")
+            thumb.text = metadata.poster_url
+        
+        if metadata.backdrop_url:
+            fanart = ET.SubElement(movie, "fanart")
+            thumb = ET.SubElement(fanart, "thumb")
+            thumb.text = metadata.backdrop_url
+        
+        # 添加预告片
+        for trailer in metadata.trailers:
+            if trailer.get("site") == "YouTube":
+                trailer_elem = ET.SubElement(movie, "trailer")
+                trailer_elem.text = f"plugin://plugin.video.youtube/play/?video_id={trailer.get('key')}"
+        
+        # 创建XML文档
+        tree = ET.ElementTree(movie)
+        
+        # 保存NFO文件
+        nfo_path = os.path.splitext(file_path)[0] + ".nfo"
+        try:
+            # 确保中文正常显示
+            ET.indent(tree, space="  ")
+            tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
+            self.logger.info(f"NFO文件已保存: {nfo_path}")
+            return nfo_path
+        except Exception as e:
+            self.logger.error(f"保存NFO文件失败: {e}")
+            return None
+    
+    def generate_tvshow_nfo(self, metadata: TVMetadata, directory: str) -> str:
+        """生成电视剧主NFO文件"""
+        self.logger.info(f"生成电视剧主NFO文件: {directory}")
+        
+        # 创建根元素
+        tvshow = ET.Element("tvshow")
+        
+        # 添加基本信息
+        ET.SubElement(tvshow, "title").text = metadata.title
+        ET.SubElement(tvshow, "originaltitle").text = metadata.original_title
+        ET.SubElement(tvshow, "sorttitle").text = metadata.title
+        ET.SubElement(tvshow, "year").text = str(metadata.year)
+        ET.SubElement(tvshow, "premiered").text = metadata.first_air_date
+        ET.SubElement(tvshow, "status").text = metadata.status
+        ET.SubElement(tvshow, "plot").text = metadata.plot
+        ET.SubElement(tvshow, "tagline").text = metadata.tagline
+        
+        # 添加评分
+        rating = ET.SubElement(tvshow, "rating")
+        rating.set("name", "TMDb")
+        rating.set("max", "10")
+        rating.set("default", "true")
+        rating.text = str(metadata.rating_tmdb)
+        
+        if metadata.rating_douban:
+            douban_rating = ET.SubElement(tvshow, "rating")
+            douban_rating.set("name", "豆瓣")
+            douban_rating.set("max", "10")
+            douban_rating.text = str(metadata.rating_douban)
+        
+        # 添加其他信息
+        ET.SubElement(tvshow, "votes").text = str(metadata.vote_count)
+        ET.SubElement(tvshow, "popularity").text = str(metadata.popularity)
+        ET.SubElement(tvshow, "tmdbid").text = str(metadata.tmdb_id)
+        ET.SubElement(tvshow, "homepage").text = metadata.homepage
+        ET.SubElement(tvshow, "seasons").text = str(metadata.number_of_seasons)
+        ET.SubElement(tvshow, "episodes").text = str(metadata.number_of_episodes)
+        
+        # 添加流派
+        for genre in metadata.genres:
+            ET.SubElement(tvshow, "genre").text = genre
+        
+        # 添加国家
+        if metadata.country:
+            ET.SubElement(tvshow, "country").text = metadata.country
+        
+        # 添加语言
+        if metadata.language:
+            ET.SubElement(tvshow, "language").text = metadata.language
+        
+        # 添加制作公司
+        for company in metadata.production_companies:
+            ET.SubElement(tvshow, "studio").text = company
+        
+        # 添加创作者
+        if metadata.creator:
+            ET.SubElement(tvshow, "creator").text = metadata.creator
+        
+        # 添加导演
+        if metadata.director:
+            ET.SubElement(tvshow, "director").text = metadata.director
+        
+        # 添加编剧
+        if metadata.writer:
+            ET.SubElement(tvshow, "writer").text = metadata.writer
+        
+        # 添加演员
+        if metadata.cast:
+            actors = ET.SubElement(tvshow, "actors")
+            for i, actor in enumerate(metadata.cast[:20]):  # 限制为前20个演员
+                actor_elem = ET.SubElement(actors, "actor")
+                ET.SubElement(actor_elem, "name").text = actor.get("name", "")
+                ET.SubElement(actor_elem, "role").text = actor.get("role", "")
+                if actor.get("thumbnail"):
+                    ET.SubElement(actor_elem, "thumb").text = actor.get("thumbnail")
+        
+        # 添加图片信息
+        if metadata.poster_url:
+            thumb = ET.SubElement(tvshow, "thumb")
+            thumb.set("aspect", "poster")
+            thumb.text = metadata.poster_url
+        
+        if metadata.backdrop_url:
+            fanart = ET.SubElement(tvshow, "fanart")
+            thumb = ET.SubElement(fanart, "thumb")
+            thumb.text = metadata.backdrop_url
+        
+        # 创建XML文档
+        tree = ET.ElementTree(tvshow)
+        
+        # 保存NFO文件
+        nfo_path = os.path.join(directory, "tvshow.nfo")
+        try:
+            # 确保中文正常显示
+            ET.indent(tree, space="  ")
+            tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
+            self.logger.info(f"NFO文件已保存: {nfo_path}")
+            return nfo_path
+        except Exception as e:
+            self.logger.error(f"保存NFO文件失败: {e}")
+            return None
+    
+    def generate_episode_nfo(self, metadata: TVMetadata, video_info: VideoInfo, file_path: str, 
+                             episode_metadata: Optional[EpisodeMetadata] = None) -> str:
+        """生成电视剧集NFO文件"""
+        self.logger.info(f"生成电视剧集NFO文件: {file_path}")
+        
+        # 创建根元素
+        episode = ET.Element("episodedetails")
+        
+        # 添加基本信息
+        if episode_metadata and episode_metadata.title:
+            ET.SubElement(episode, "title").text = episode_metadata.title
+        else:
+            ET.SubElement(episode, "title").text = f"Season {video_info.season} Episode {video_info.episode}"
+        
+        ET.SubElement(episode, "showtitle").text = metadata.title
+        ET.SubElement(episode, "season").text = str(video_info.season)
+        ET.SubElement(episode, "episode").text = str(video_info.episode)
+        
+        if episode_metadata and episode_metadata.overview:
+            ET.SubElement(episode, "plot").text = episode_metadata.overview
+        else:
+            ET.SubElement(episode, "plot").text = metadata.plot
+        
+        if episode_metadata and episode_metadata.air_date:
+            ET.SubElement(episode, "aired").text = episode_metadata.air_date
+        
+        if episode_metadata and episode_metadata.runtime:
+            ET.SubElement(episode, "runtime").text = str(episode_metadata.runtime)
+        
+        if episode_metadata and episode_metadata.rating:
+            ET.SubElement(episode, "rating").text = str(episode_metadata.rating)
+        
+        # 添加导演
+        if episode_metadata and episode_metadata.director:
+            ET.SubElement(episode, "director").text = episode_metadata.director
+        elif metadata.director:
+            ET.SubElement(episode, "director").text = metadata.director
+        
+        # 添加编剧
+        if episode_metadata and episode_metadata.writer:
+            ET.SubElement(episode, "writer").text = episode_metadata.writer
+        elif metadata.writer:
+            ET.SubElement(episode, "writer").text = metadata.writer
+        
+        # 添加演员
+        if metadata.cast:
+            actors = ET.SubElement(episode, "actors")
+            for i, actor in enumerate(metadata.cast[:10]):  # 限制为前10个演员
+                actor_elem = ET.SubElement(actors, "actor")
+                ET.SubElement(actor_elem, "name").text = actor.get("name", "")
+                ET.SubElement(actor_elem, "role").text = actor.get("role", "")
+                if actor.get("thumbnail"):
+                    ET.SubElement(actor_elem, "thumb").text = actor.get("thumbnail")
+        
+        # 添加图片信息
+        if episode_metadata and episode_metadata.still_url:
+            thumb = ET.SubElement(episode, "thumb")
+            thumb.text = episode_metadata.still_url
+        elif metadata.poster_url:
+            thumb = ET.SubElement(episode, "thumb")
+            thumb.text = metadata.poster_url
+        
+        # 创建XML文档
+        tree = ET.ElementTree(episode)
+        
+        # 保存NFO文件
+        nfo_path = os.path.splitext(file_path)[0] + ".nfo"
+        try:
+            # 确保中文正常显示
+            ET.indent(tree, space="  ")
+            tree.write(nfo_path, encoding="utf-8", xml_declaration=True)
+            self.logger.info(f"NFO文件已保存: {nfo_path}")
+            return nfo_path
+        except Exception as e:
+            self.logger.error(f"保存NFO文件失败: {e}")
+            return None
+
+class EnhancedVideoRenamer:
+    """增强版视频重命名工具，支持元数据合并和性能优化"""
+    
+    def __init__(self, api_keys: Dict[str, str] = None):
+        """
+        初始化视频重命名工具
+        
+        参数:
+            api_keys (Dict[str, str]): API密钥字典，包含'tmdb'和'imdb'等
+        """
+        self.api_keys = api_keys or {}
+        self.tmdb_client = TMDbClient(self.api_keys.get("tmdb", ""))
+        self.imdb_client = ImdbClient(self.api_keys.get("imdb", ""))
+        self.douban_client = DoubanClient(self.api_keys.get("douban", ""))
+        self.metadata_merger = MetadataMerger()
+        self.metadata_generator = SynologyMetadataGenerator()
+        self.file_downloader = FileDownloader(max_workers=5)
+        self.cache_dir = os.path.join(os.path.expanduser("~"), ".video_renamer_cache")
+        self.create_cache_dir()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # 支持的视频文件扩展名
+        self.video_extensions = {
+            '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', 
+            '.m4v', '.ts', '.rmvb', '.3gp', '.vob', '.mpg', '.mpeg'
+        }
+        
+        # 配置文件名格式
+        self.movie_format = "[{year}] {title} ({rating})"
+        self.tv_format = "{title} - S{season:02d}E{episode:02d} - {episode_title} ({rating})"
+    
+    def create_cache_dir(self):
+        """创建缓存目录"""
+        try:
+            os.makedirs(self.cache_dir, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f"创建缓存目录失败: {e}")
+    
+    def get_cache_path(self, key: str) -> str:
+        """获取缓存文件路径"""
+        return os.path.join(self.cache_dir, f"{hashlib.md5(key.encode('utf-8')).hexdigest()}.json")
+    
+    def load_from_cache(self, key: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+        """从缓存加载数据"""
+        cache_path = self.get_cache_path(key)
+        
+        if not os.path.exists(cache_path):
+            return None
+        
+        # 检查缓存是否过期
+        file_age = (datetime.datetime.now() - datetime.datetime.fromtimestamp(
+            os.path.getmtime(cache_path))).days
+        
+        if file_age > max_age_days:
+            self.logger.info(f"缓存已过期: {key}")
+            return None
+        
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            self.logger.error(f"读取缓存失败: {e}")
+            return None
+    
+    def save_to_cache(self, key: str, data: Dict[str, Any]):
+        """保存数据到缓存"""
+        cache_path = self.get_cache_path(key)
+        
+        try:
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.logger.error(f"保存缓存失败: {e}")
+    
+    def analyze_file_name(self, filename: str) -> Optional[VideoInfo]:
+        """
+        分析文件名，提取影视名称、季数、集数等信息
+        
+        参数:
+            filename (str): 文件名
+        
+        返回:
+            Optional[VideoInfo]: 视频信息对象，如果无法解析则返回None
+        """
+        self.logger.info(f"分析文件名: {filename}")
+        
+        # 移除扩展名
+        base_name, ext = os.path.splitext(filename)
+        if ext.lower() not in self.video_extensions:
+            self.logger.warning(f"文件扩展名不支持: {ext}")
+            return None
+        
+        video_info = VideoInfo(file_path="", file_name=filename, extension=ext)
+        
+        # 检查是否为电视剧格式
+        tv_patterns = [
+            # 标准格式: 名称.S01E01
+            r'(.+?)[. _-]s(\d+)[. _-]?e(\d+)[. _-]?',
+            # 简化格式: 名称 1x01
+            r'(.+?)[. _-](\d+)[xX](\d+)[. _-]?',
+            # 无分隔符格式: 名称S01E01
+            r'(.+?)s(\d+)e(\d+)[. _-]?',
+            # 中文格式: 名称 第1季 第1集
+            r'(.+?)[. _-]第(\d+)季[. _-]?第(\d+)集[. _-]?',
+            # 常见压缩包格式: 名称.E01
+            r'(.+?)[. _-]e(\d+)[. _-]?',
+            # 日韩格式: 名称 1-1
+            r'(.+?)[. _-](\d+)-(\d+)[. _-]?',
+        ]
+        
+        for pattern in tv_patterns:
+            match = re.search(pattern, base_name, re.IGNORECASE)
+            if match:
+                video_info.is_tv_show = True
+                video_info.title = match.group(1).strip().replace('.', ' ').replace('_', ' ')
+                
+                if len(match.groups()) >= 3:
+                    try:
+                        video_info.season = int(match.group(2))
+                        video_info.episode = int(match.group(3))
+                    except ValueError:
+                        self.logger.warning(f"无法解析季数或集数: {match.group(2)}, {match.group(3)}")
+                elif len(match.groups()) >= 2:
+                    try:
+                        video_info.season = 1  # 默认第一季
+                        video_info.episode = int(match.group(2))
+                    except ValueError:
+                        self.logger.warning(f"无法解析集数: {match.group(2)}")
+                
+                # 尝试提取年份
+                year_match = re.search(r'\((\d{4})\)', video_info.title)
+                if year_match:
+                    try:
+                        video_info.year = int(year_match.group(1))
+                        video_info.title = video_info.title.replace(year_match.group(0), '').strip()
+                    except ValueError:
+                        pass
+                
+                # 尝试提取质量信息
+                quality_patterns = [
+                    r'([. _-]|^)(1080p|720p|4k|2160p|uhd|hd|sd|hdr|hdtv|web-dl|webrip|bluray|bdrip|dvdrip)([. _-]|$)',
+                    r'([. _-]|^)(h264|h265|x264|x265)([. _-]|$)',
+                    r'([. _-]|^)(aac|ac3|dts|dd5\.1|dd7\.1)([. _-]|$)'
+                ]
+                
+                for q_pattern in quality_patterns:
+                    q_match = re.search(q_pattern, base_name, re.IGNORECASE)
+                    if q_match:
+                        if not video_info.quality:
+                            video_info.quality = q_match.group(2).upper()
+                        else:
+                            video_info.quality += f" {q_match.group(2).upper()}"
+                
+                # 尝试提取发布组信息
+                group_pattern = r'-([^-]+)$'
+                group_match = re.search(group_pattern, base_name)
+                if group_match:
+                    video_info.group = group_match.group(1).strip()
+                
+                self.logger.info(f"解析为电视剧: {video_info.title}, 季: {video_info.season}, 集: {video_info.episode}")
+                return video_info
+        
+        # 检查是否为电影格式
+        movie_patterns = [
+            # 名称 (年份)
+            r'(.+?)\s*\(?(\d{4})\)?[. _-]*',
+            # 名称.年份
+            r'(.+?)[. _-](\d{4})[. _-]*',
+            # 仅名称
+            r'(.+)'
+        ]
+        
+        for pattern in movie_patterns:
+            match = re.search(pattern, base_name, re.IGNORECASE)
+            if match:
+                video_info.title = match.group(1).strip().replace('.', ' ').replace('_', ' ')
+                
+                if len(match.groups()) >= 2:
+                    try:
+                        video_info.year = int(match.group(2))
+                    except ValueError:
+                        pass
+                
+                # 尝试提取质量信息
+                quality_patterns = [
+                    r'([. _-]|^)(1080p|720p|4k|2160p|uhd|hd|sd|hdr|hdtv|web-dl|webrip|bluray|bdrip|dvdrip)([. _-]|$)',
+                    r'([. _-]|^)(h264|h265|x264|x265)([. _-]|$)',
+                    r'([. _-]|^)(aac|ac3|dts|dd5\.1|dd7\.1)([. _-]|$)'
+                ]
+                
+                for q_pattern in quality_patterns:
+                    q_match = re.search(q_pattern, base_name, re.IGNORECASE)
+                    if q_match:
+                        if not video_info.quality:
+                            video_info.quality = q_match.group(2).upper()
+                        else:
+                            video_info.quality += f" {q_match.group(2).upper()}"
+                
+                # 尝试提取发布组信息
+                group_pattern = r'-([^-]+)$'
+                group_match = re.search(group_pattern, base_name)
+                if group_match:
+                    video_info.group = group_match.group(1).strip()
+                
+                self.logger.info(f"解析为电影: {video_info.title}, 年份: {video_info.year}")
+                return video_info
+        
+        self.logger.warning(f"无法解析文件名: {filename}")
+        return None
+    
+    def fetch_movie_metadata(self, title: str, year: Optional[int] = None) -> Optional[MovieMetadata]:
+        """
+        获取电影元数据，尝试从多个来源获取并合并
+        
+        参数:
+            title (str): 电影名称
+            year (Optional[int]): 电影年份
+        
+        返回:
+            Optional[MovieMetadata]: 电影元数据，如果未找到则返回None
+        """
+        cache_key = f"movie_{title}_{year}"
+        cached_data = self.load_from_cache(cache_key)
+        
+        if cached_data:
+            self.logger.info(f"从缓存加载电影元数据: {title} ({year})")
+            return MovieMetadata(**cached_data)
+        
+        self.logger.info(f"获取电影元数据: {title} ({year})")
+        
+        # 先从TMDb获取
+        tmdb_results = self.tmdb_client.search_movie(title, year)
+        if not tmdb_results:
+            self.logger.warning(f"在TMDb中未找到电影: {title} ({year})")
+            return None
+        
+        # 获取第一个结果的详细信息
+        tmdb_id = tmdb_results[0]["id"]
+        tmdb_details = self.tmdb_client.get_movie_details(tmdb_id)
+        
+        if not tmdb_details:
+            self.logger.warning(f"获取TMDb电影详情失败: {tmdb_id}")
+            return None
+        
+        # 尝试从IMDb获取信息
+        imdb_id = tmdb_details.get("imdb_id")
+        imdb_details = None
+        
+        if imdb_id:
+            imdb_details = self.imdb_client.get_movie_details(imdb_id)
+        
+        # 尝试从豆瓣获取信息
+        douban_details = None
+        # 注意：由于豆瓣API限制，这里简化处理
+        
+        # 转换TMDb数据为MovieMetadata
+        movie_metadata = self._convert_tmdb_movie_to_metadata(tmdb_details)
+        
+        # 如果有IMDb数据，合并
+        if imdb_details:
+            imdb_metadata = self._convert_imdb_movie_to_metadata(imdb_details)
+            movie_metadata = self.metadata_merger.merge_movie_metadata(movie_metadata, imdb_metadata)
+        
+        # 如果有豆瓣数据，合并
+        if douban_details:
+            douban_metadata = self._convert_douban_movie_to_metadata(douban_details)
+            movie_metadata = self.metadata_merger.merge_movie_metadata(movie_metadata, douban_metadata)
+        
+        # 保存到缓存
+        self.save_to_cache(cache_key, asdict(movie_metadata))
+        
+        return movie_metadata
+    
+    def _convert_tmdb_movie_to_metadata(self, tmdb_data: Dict[str, Any]) -> MovieMetadata:
+        """将TMDb电影数据转换为MovieMetadata对象"""
+        # 提取演员信息
+        cast = []
+        if "credits" in tmdb_data and "cast" in tmdb_data["credits"]:
+            for actor in tmdb_data["credits"]["cast"][:20]:  # 取前20个演员
+                cast.append({
+                    "name": actor.get("name", ""),
+                    "role": actor.get("character", ""),
+                    "thumbnail": f"https://image.tmdb.org/t/p/w185{actor.get('profile_path', '')}" 
+                                if actor.get("profile_path") else ""
+                })
+        
+        # 提取工作人员信息
+        crew = []
+        if "credits" in tmdb_data and "crew" in tmdb_data["credits"]:
+            for crew_member in tmdb_data["credits"]["crew"]:
+                if crew_member.get("job") in ["Director", "Writer", "Producer", "Cinematographer", "Editor", "Composer"]:
+                    crew.append({
+                        "name": crew_member.get("name", ""),
+                        "job": crew_member.get("job", ""),
+                        "thumbnail": f"https://image.tmdb.org/t/p/w185{crew_member.get('profile_path', '')}" 
+                                    if crew_member.get("profile_path") else ""
+                    })
+        
+        # 提取导演、编剧等信息
+        director = ""
+        writer = ""
+        producer = ""
+        cinematographer = ""
+        editor = ""
+        composer = ""
+        
+        for crew_member in crew:
+            if crew_member["job"] == "Director" and not director:
+                director = crew_member["name"]
+            elif crew_member["job"] == "Writer" and not writer:
+                writer = crew_member["name"]
+            elif crew_member["job"] == "Producer" and not producer:
+                producer = crew_member["name"]
+            elif crew_member["job"] == "Cinematographer" and not cinematographer:
+                cinematographer = crew_member["name"]
+            elif crew_member["job"] == "Editor" and not editor:
+                editor = crew_member["name"]
+            elif crew_member["job"] == "Composer" and not composer:
+                composer = crew_member["name"]
+        
+        # 提取预告片信息
+        trailers = []
+        if "videos" in tmdb_data and "results" in tmdb_data["videos"]:
+            for video in tmdb_data["videos"]["results"]:
+                if video.get("type") == "Trailer" and video.get("site") == "YouTube":
+                    trailers.append({
+                        "type": video.get("type", ""),
+                        "key": video.get("key", ""),
+                        "site": video.get("site", "")
+                    })
+        
+        # 提取认证信息
+        certification = ""
+        if "release_dates" in tmdb_data and "results" in tmdb_data["release_dates"]:
+            for country_data in tmdb_data["release_dates"]["results"]:
+                if country_data.get("iso_3166_1") == "US":
+                    for cert in country_data.get("release_dates", []):
+                        if cert.get("certification"):
+                            certification = cert.get("certification")
+                            break
+                    break
+        
+        # 提取制作公司
+        production_companies = []
+        if "production_companies" in tmdb_data:
+            for company in tmdb_data["production_companies"]:
+                production_companies.append(company.get("name", ""))
+        
+        # 提取语言和国家
+        language = ""
+        if "original_language" in tmdb_data:
+            language = tmdb_data["original_language"].upper()
+        
+        country = ""
+        if "production_countries" in tmdb_data and len(tmdb_data["production_countries"]) > 0:
+            country = tmdb_data["production_countries"][0].get("name", "")
+        
+        # 创建MovieMetadata对象
+        return MovieMetadata(
+            tmdb_id=tmdb_data.get("id"),
+            imdb_id=tmdb_data.get("imdb_id", ""),
+            title=tmdb_data.get("title", ""),
+            original_title=tmdb_data.get("original_title", ""),
+            year=int(tmdb_data.get("release_date", "2000-01-01")[:4]) if tmdb_data.get("release_date") else 0,
+            release_date=tmdb_data.get("release_date", ""),
+            runtime=tmdb_data.get("runtime", 0),
+            budget=tmdb_data.get("budget", 0),
+            revenue=tmdb_data.get("revenue", 0),
+            genres=[genre.get("name", "") for genre in tmdb_data.get("genres", [])],
+            director=director,
+            writer=writer,
+            producer=producer,
+            cinematographer=cinematographer,
+            editor=editor,
+            composer=composer,
+            cast=cast,
+            crew=crew,
+            plot=tmdb_data.get("overview", ""),
+            tagline=tmdb_data.get("tagline", ""),
+            rating_tmdb=tmdb_data.get("vote_average", 0.0),
+            vote_count=tmdb_data.get("vote_count", 0),
+            popularity=tmdb_data.get("popularity", 0.0),
+            poster_url=f"https://image.tmdb.org/t/p/w500{tmdb_data.get('poster_path', '')}" 
+                      if tmdb_data.get("poster_path") else "",
+            backdrop_url=f"https://image.tmdb.org/t/p/w1280{tmdb_data.get('backdrop_path', '')}" 
+                        if tmdb_data.get("backdrop_path") else "",
+            homepage=tmdb_data.get("homepage", ""),
+            language=language,
+            country=country,
+            certification=certification,
+            production_companies=production_companies,
+            trailers=trailers
+        )
+    
+    def _convert_imdb_movie_to_metadata(self, imdb_data: Dict[str, Any]) -> MovieMetadata:
+        """将IMDb电影数据转换为MovieMetadata对象"""
+        # 提取演员信息
+        cast = []
+        if "stars" in imdb_data:
+            for star in imdb_data["stars"].split(", "):
+                cast.append({
+                    "name": star,
+                    "role": "",
+                    "thumbnail": ""
+                })
+        
+        # 提取导演、编剧等信息
+        director = imdb_data.get("director", "")
+        writer = imdb_data.get("writers", "").split(" (")[0] if imdb_data.get("writers") else ""
+        
+        # 创建MovieMetadata对象
+        return MovieMetadata(
+            imdb_id=imdb_data.get("imdbID", ""),
+            title=imdb_data.get("title", ""),
+            original_title=imdb_data.get("originalTitle", imdb_data.get("title", "")),
+            year=int(imdb_data.get("year", 0)),
+            plot=imdb_data.get("plot", ""),
+            rating_imdb=float(imdb_data.get("imDbRating", 0.0)),
+            poster_url=imdb_data.get("image", ""),
+            director=director,
+            writer=writer,
+            cast=cast
+        )
+    
+    def _convert_douban_movie_to_metadata(self, douban_data: Dict[str, Any]) -> MovieMetadata:
+        """将豆瓣电影数据转换为MovieMetadata对象"""
+        # 提取演员信息
+        cast = []
+        if "casts" in douban_data:
+            for actor in douban_data["casts"]:
+                cast.append({
+                    "name": actor.get("name", ""),
+                    "role": "",
+                    "thumbnail": actor.get("avatar", "")
+                })
+        
+        # 提取导演信息
+        director = ""
+        if "directors" in douban_data and len(douban_data["directors"]) > 0:
+            director = douban_data["directors"][0].get("name", "")
+        
+        # 创建MovieMetadata对象
+        return MovieMetadata(
+            douban_id=douban_data.get("id", ""),
+            title=douban_data.get("title", ""),
+            original_title=douban_data.get("original_title", ""),
+            year=int(douban_data.get("year", 0)),
+            plot=douban_data.get("summary", ""),
+            rating_douban=float(douban_data.get("rating", {}).get("average", 0.0)),
+            poster_url=douban_data.get("images", {}).get("large", ""),
+            director=director,
+            cast=cast
+        )
+    
+    def fetch_tv_metadata(self, title: str, year: Optional[int] = None) -> Optional[TVMetadata]:
+        """
+        获取电视剧元数据
+        
+        参数:
+            title (str): 电视剧名称
+            year (Optional[int]): 首播年份
+        
+        返回:
+            Optional[TVMetadata]: 电视剧元数据，如果未找到则返回None
+        """
+        cache_key = f"tv_{title}_{year}"
+        cached_data = self.load_from_cache(cache_key)
+        
+        if cached_data:
+            self.logger.info(f"从缓存加载电视剧元数据: {title} ({year})")
+            return TVMetadata(**cached_data)
+        
+        self.logger.info(f"获取电视剧元数据: {title} ({year})")
+        
+        # 从TMDb获取
+        tmdb_results = self.tmdb_client.search_tv(title, year)
+        if not tmdb_results:
+            self.logger.warning(f"在TMDb中未找到电视剧: {title} ({year})")
+            return None
+        
+        # 获取第一个结果的详细信息
+        tmdb_id = tmdb_results[0]["id"]
+        tmdb_details = self.tmdb_client.get_tv_details(tmdb_id)
+        
+        if not tmdb_details:
+            self.logger.warning(f"获取TMDb电视剧详情失败: {tmdb_id}")
+            return None
+        
+        # 转换TMDb数据为TVMetadata
+        tv_metadata = self._convert_tmdb_tv_to_metadata(tmdb_details)
+        
+        # 保存到缓存
+        self.save_to_cache(cache_key, asdict(tv_metadata))
+        
+        return tv_metadata
+    
+    def _convert_tmdb_tv_to_metadata(self, tmdb_data: Dict[str, Any]) -> TVMetadata:
+        """将TMDb电视剧数据转换为TVMetadata对象"""
+        # 提取演员信息
+        cast = []
+        if "credits" in tmdb_data and "cast" in tmdb_data["credits"]:
+            for actor in tmdb_data["credits"]["cast"][:20]:  # 取前20个演员
+                cast.append({
+                    "name": actor.get("name", ""),
+                    "role": actor.get("character", ""),
+                    "thumbnail": f"https://image.tmdb.org/t/p/w185{actor.get('profile_path', '')}" 
+                                if actor.get("profile_path") else ""
+                })
+        
+        # 提取工作人员信息
+        crew = []
+        if "credits" in tmdb_data and "crew" in tmdb_data["credits"]:
+            for crew_member in tmdb_data["credits"]["crew"]:
+                if crew_member.get("job") in ["Creator", "Director", "Writer"]:
+                    crew.append({
+                        "name": crew_member.get("name", ""),
+                        "job": crew_member.get("job", ""),
+                        "thumbnail": f"https://image.tmdb.org/t/p/w185{crew_member.get('profile_path', '')}" 
+                                    if crew_member.get("profile_path") else ""
+                    })
+        
+        # 提取创作者、导演、编剧等信息
+        creator = ""
+        director = ""
+        writer = ""
+        
+        for crew_member in crew:
+            if crew_member["job"] == "Creator" and not creator:
+                creator = crew_member["name"]
+            elif crew_member["job"] == "Director" and not director:
+                director = crew_member["name"]
+            elif crew_member["job"] == "Writer" and not writer:
+                writer = crew_member["name"]
+        
+        # 提取制作公司
+        production_companies = []
+        if "production_companies" in tmdb_data:
+            for company in tmdb_data["production_companies"]:
+                production_companies.append(company.get("name", ""))
+        
+        # 提取语言和国家
+        language = ""
+        if "original_language" in tmdb_data:
+            language = tmdb_data["original_language"].upper()
+        
+        country = ""
+        if "origin_country" in tmdb_data and len(tmdb_data["origin_country"]) > 0:
+            country = tmdb_data["origin_country"][0]
+        
+        # 创建TVMetadata对象
+        return TVMetadata(
+            tmdb_id=tmdb_data.get("id"),
+            title=tmdb_data.get("name", ""),
+            original_title=tmdb_data.get("original_name", ""),
+            year=int(tmdb_data.get("first_air_date", "2000-01-01")[:4]) if tmdb_data.get("first_air_date") else 0,
+            first_air_date=tmdb_data.get("first_air_date", ""),
+            last_air_date=tmdb_data.get("last_air_date", ""),
+            status=tmdb_data.get("status", ""),
+            in_production=tmdb_data.get("in_production", False),
+            episode_runtime=tmdb_data.get("episode_run_time", []),
+            number_of_seasons=tmdb_data.get("number_of_seasons", 0),
+            number_of_episodes=tmdb_data.get("number_of_episodes", 0),
+            next_episode_to_air=tmdb_data.get("next_episode_to_air", None),
+            last_episode_to_air=tmdb_data.get("last_episode_to_air", None),
+            genres=[genre.get("name", "") for genre in tmdb_data.get("genres", [])],
+            creator=creator,
+            director=director,
+            writer=writer,
+            cast=cast,
+            crew=crew,
+            plot=tmdb_data.get("overview", ""),
+            tagline=tmdb_data.get("tagline", ""),
+            rating_tmdb=tmdb_data.get("vote_average", 0.0),
+            vote_count=tmdb_data.get("vote_count", 0),
+            popularity=tmdb_data.get("popularity", 0.0),
+            poster_url=f"https://image.tmdb.org/t/p/w500{tmdb_data.get('poster_path', '')}" 
+                      if tmdb_data.get("poster_path") else "",
+            backdrop_url=f"https://image.tmdb.org/t/p/w1280{tmdb_data.get('backdrop_path', '')}" 
+                        if tmdb_data.get("backdrop_path") else "",
+            homepage=tmdb_data.get("homepage", ""),
+            language=language,
+            country=country,
+            production_companies=production_companies
+        )
+    
+    def fetch_episode_metadata(self, tmdb_id: int, season: int, episode: int) -> Optional[EpisodeMetadata]:
+        """
+        获取电视剧集元数据
+        
+        参数:
+            tmdb_id (int): 电视剧TMDB ID
+            season (int): 季数
+            episode (int): 集数
+        
+        返回:
+            Optional[EpisodeMetadata]: 剧集元数据，如果未找到则返回None
+        """
+        cache_key = f"episode_{tmdb_id}_{season}_{episode}"
+        cached_data = self.load_from_cache(cache_key)
+        
+        if cached_data:
+            self.logger.info(f"从缓存加载剧集元数据: S{season}E{episode}")
+            return EpisodeMetadata(**cached_data)
+        
+        self.logger.info(f"获取剧集元数据: S{season}E{episode}")
+        
+        # 从TMDb获取
+        episode_details = self.tmdb_client.get_tv_episode_details(tmdb_id, season, episode)
+        
+        if not episode_details:
+            self.logger.warning(f"在TMDb中未找到剧集: S{season}E{episode}")
+            return None
+        
+        # 提取导演和编剧
+        director = ""
+        writer = ""
+        
+        if "crew" in episode_details:
+            for crew_member in episode_details["crew"]:
+                if crew_member.get("job") == "Director" and not director:
+                    director = crew_member.get("name", "")
+                elif crew_member.get("job") == "Writer" and not writer:
+                    writer = crew_member.get("name", "")
+        
+        # 提取客串明星
+        guest_stars = []
+        if "guest_stars" in episode_details:
+            for star in episode_details["guest_stars"]:
+                guest_stars.append(star.get("name", ""))
+        
+        # 创建EpisodeMetadata对象
+        metadata = EpisodeMetadata(
+            title=episode_details.get("name", ""),
+            season_number=season,
+            episode_number=episode,
+            overview=episode_details.get("overview", ""),
+            air_date=episode_details.get("air_date", ""),
+            runtime=episode_details.get("runtime", 0),
+            rating=episode_details.get("vote_average", 0.0),
+            vote_count=episode_details.get("vote_count", 0),
+            director=director,
+            writer=writer,
+            guest_stars=guest_stars,
+            production_code=episode_details.get("production_code", ""),
+            still_url=f"https://image.tmdb.org/t/p/w500{episode_details.get('still_path', '')}" 
+                     if episode_details.get("still_path") else ""
+        )
+        
+        # 保存到缓存
+        self.save_to_cache(cache_key, asdict(metadata))
+        
+        return metadata
+    
+    def generate_new_name(self, video_info: VideoInfo, metadata: Union[MovieMetadata, TVMetadata], 
+                         episode_metadata: Optional[EpisodeMetadata] = None) -> str:
+        """
+        生成新的文件名
+        
+        参数:
+            video_info (VideoInfo): 视频文件信息
+            metadata (Union[MovieMetadata, TVMetadata]): 元数据
+            episode_metadata (Optional[EpisodeMetadata]): 剧集元数据（如果是电视剧）
+        
+        返回:
+            str: 新的文件名
+        """
+        if video_info.is_tv_show and isinstance(metadata, TVMetadata):
+            # 处理电视剧
+            episode_title = episode_metadata.title if episode_metadata else ""
+            rating = f"{metadata.rating_tmdb:.1f}" if metadata.rating_tmdb > 0 else "0.0"
+            
+            # 格式化剧集标题
+            if not episode_title:
+                episode_title = f"Episode {video_info.episode}"
+            
+            # 构建新的文件名
+            new_name = self.tv_format.format(
+                title=metadata.title,
+                season=video_info.season,
+                episode=video_info.episode,
+                episode_title=episode_title,
+                rating=rating
+            )
+            
+            # 移除非法字符
+            new_name = re.sub(r'[\\/*?:"<>|]', '', new_name)
+            
+            # 添加质量信息和扩展名
+            if video_info.quality:
+                new_name += f" [{video_info.quality}]"
+            
+            new_name += video_info.extension
+            
+            return new_name
+        elif isinstance(metadata, MovieMetadata):
+            # 处理电影
+            year = metadata.year if metadata.year > 0 else "????"
+            rating = f"{metadata.rating_tmdb:.1f}" if metadata.rating_tmdb > 0 else "0.0"
+            
+            # 构建新的文件名
+            new_name = self.movie_format.format(
+                year=year,
+                title=metadata.title,
+                rating=rating
+            )
+            
+            # 移除非法字符
+            new_name = re.sub(r'[\\/*?:"<>|]', '', new_name)
+            
+            # 添加质量信息和扩展名
+            if video_info.quality:
+                new_name += f" [{video_info.quality}]"
+            
+            new_name += video_info.extension
+            
+            return new_name
+        
+        # 默认返回原文件名
+        return video_info.file_name
+    
+    def create_movie_folder(self, file_path: str, metadata: MovieMetadata) -> str:
+        """
+        为电影创建文件夹并移动文件
+        
+        参数:
+            file_path (str): 原文件路径
+            metadata (MovieMetadata): 电影元数据
+        
+        返回:
+            str: 新的文件路径
+        """
+        dirname = os.path.dirname(file_path)
+        filename = os.path.basename(file_path)
+        
+        # 生成文件夹名称
+        year = metadata.year if metadata.year > 0 else "????"
+        folder_name = f"[{year}] {metadata.title}"
+        
+        # 移除非法字符
+        folder_name = re.sub(r'[\\/*?:"<>|]', '', folder_name)
+        
+        # 创建文件夹
+        new_dir = os.path.join(dirname, folder_name)
+        os.makedirs(new_dir, exist_ok=True)
+        
+        # 移动文件
+        new_path = os.path.join(new_dir, filename)
+        os.replace(file_path, new_path)
+        
+        return new_path
+    
+    def download_and_save_images(self, directory: str, metadata: Union[MovieMetadata, TVMetadata], 
+                                episode_metadata: Optional[EpisodeMetadata] = None):
+        """
+        下载并保存海报和背景图片
+        
+        参数:
+            directory (str): 保存目录
+            metadata (Union[MovieMetadata, TVMetadata]): 元数据
+            episode_metadata (Optional[EpisodeMetadata]): 剧集元数据（如果是电视剧）
+        """
+        urls = []
+        save_paths = []
+        
+        # 海报
+        if metadata.poster_url:
+            poster_path = os.path.join(directory, "poster.jpg")
+            urls.append(metadata.poster_url)
+            save_paths.append(poster_path)
+        
+        # 背景图
+        if metadata.backdrop_url:
+            backdrop_path = os.path.join(directory, "backdrop.jpg")
+            urls.append(metadata.backdrop_url)
+            save_paths.append(backdrop_path)
+        
+        # 剧集截图
+        if episode_metadata and episode_metadata.still_url:
+            still_path = os.path.join(directory, f"season{episode_metadata.season_number}_episode{episode_metadata.episode_number}.jpg")
+            urls.append(episode_metadata.still_url)
+            save_paths.append(still_path)
+        
+        # 并行下载
+        self.file_downloader.download_files_parallel(urls, save_paths)
+    
+    def rename_files(self, directory: str):
+        """
+        重命名指定目录中的所有影视文件
+        
+        参数:
+            directory (str): 目录路径
+        """
+        self.logger.info(f"开始处理目录: {directory}")
+        
+        # 遍历目录中的所有文件
+        for root, _, files in os.walk(directory):
+            for file in files:
+                file_path = os.path.join(root, file)
+                video_info = self.analyze_file_name(file)
+                
+                if video_info:
+                    video_info.file_path = file_path
+                    
+                    try:
+                        if video_info.is_tv_show:
+                            # 处理电视剧
+                            self._process_tv_show(video_info)
+                        else:
+                            # 处理电影
+                            self._process_movie(video_info)
+                    except Exception as e:
+                        self.logger.error(f"处理文件失败: {file_path}, 错误: {e}")
+    def _process_movie(self, video_info: VideoInfo):
+        """处理电影文件"""
+        self.logger.info(f"处理电影: {video_info.file_name}")
+        
+        # 获取电影元数据
+        metadata = self.fetch_movie_metadata(video_info.title, video_info.year)
+        
+        if not metadata:
+            self.logger.warning(f"无法获取电影元数据: {video_info.file_name}")
+            return
+        
+        # 生成新的文件名
+        new_name = self.generate_new_name(video_info, metadata)
+        
+        # 创建电影文件夹并移动文件
+        new_path = self.create_movie_folder(video_info.file_path, metadata)
+        
+        # 生成NFO文件
+        self.metadata_generator.generate_movie_nfo(metadata, new_path)
+        
+        # 下载并保存图片
+        directory = os.path.dirname(new_path)
+        self.download_and_save_images(directory, metadata)
+        
+        self.logger.info(f"电影处理完成: {video_info.file_name} -> {new_name}")
+    
+    def _process_tv_show(self, video_info: VideoInfo):
+        """处理电视剧文件"""
+        self.logger.info(f"处理电视剧: {video_info.file_name}")
+        
+        # 获取电视剧元数据
+        metadata = self.fetch_tv_metadata(video_info.title, video_info.year)
+        
+        if not metadata:
+            self.logger.warning(f"无法获取电视剧元数据: {video_info.file_name}")
+            return
+        
+        # 获取剧集元数据
+        episode_metadata = None
+        if video_info.season and video_info.episode:
+            episode_metadata = self.fetch_episode_metadata(
+                metadata.tmdb_id, video_info.season, video_info.episode
+            )
+        
+        # 生成新的文件名
+        new_name = self.generate_new_name(video_info, metadata, episode_metadata)
+        
+        # 构建新的文件路径
+        series_dir = os.path.dirname(video_info.file_path)
+        season_dir = os.path.join(series_dir, f"Season {video_info.season:02d}")
+        
+        # 创建季文件夹（如果不存在）
+        os.makedirs(season_dir, exist_ok=True)
+        
+        # 移动文件到新位置
+        new_path = os.path.join(season_dir, new_name)
+        os.replace(video_info.file_path, new_path)
+        
+        # 生成主TVShow NFO文件（如果不存在）
+        tvshow_nfo_path = os.path.join(series_dir, "tvshow.nfo")
+        if not os.path.exists(tvshow_nfo_path):
+            self.metadata_generator.generate_tvshow_nfo(metadata, series_dir)
+            self.download_and_save_images(series_dir, metadata)
+        
+        # 生成剧集NFO文件
+        self.metadata_generator.generate_episode_nfo(metadata, video_info, new_path, episode_metadata)
+        
+        # 下载并保存剧集图片
+        if episode_metadata:
+            self.download_and_save_images(season_dir, metadata, episode_metadata)
+        
+        self.logger.info(f"电视剧处理完成: {video_info.file_name} -> {new_name}")
+    
+    def batch_process_files(self, directory: str, dry_run: bool = False):
+        """
+        批量处理目录中的所有影视文件
+        
+        参数:
+            directory (str): 目录路径
+            dry_run (bool): 是否进行模拟运行，不实际修改文件
+        """
+        self.logger.info(f"开始批量处理目录: {directory}")
+        self.logger.info(f"干运行模式: {dry_run}")
+        
+        processed_count = 0
+        skipped_count = 0
+        
+        # 遍历目录中的所有文件
+        for root, _, files in os.walk(directory):
+            for file in files:
+                file_path = os.path.join(root, file)
+                
+                # 检查文件是否为视频文件
+                ext = os.path.splitext(file)[1].lower()
+                if ext not in self.video_extensions:
+                    self.logger.debug(f"跳过非视频文件: {file}")
+                    skipped_count += 1
+                    continue
+                
+                video_info = self.analyze_file_name(file)
+                
+                if not video_info:
+                    self.logger.warning(f"无法解析文件名: {file}")
+                    skipped_count += 1
+                    continue
+                
+                video_info.file_path = file_path
+                
+                try:
+                    if video_info.is_tv_show:
+                        # 处理电视剧
+                        if dry_run:
+                            metadata = self.fetch_tv_metadata(video_info.title, video_info.year)
+                            if metadata and video_info.season and video_info.episode:
+                                episode_metadata = self.fetch_episode_metadata(
+                                    metadata.tmdb_id, video_info.season, video_info.episode
+                                )
+                                new_name = self.generate_new_name(video_info, metadata, episode_metadata)
+                                self.logger.info(f"模拟处理电视剧: {file} -> {new_name}")
+                            else:
+                                self.logger.warning(f"模拟处理失败，无法获取元数据: {file}")
+                        else:
+                            self._process_tv_show(video_info)
+                    else:
+                        # 处理电影
+                        if dry_run:
+                            metadata = self.fetch_movie_metadata(video_info.title, video_info.year)
+                            if metadata:
+                                new_name = self.generate_new_name(video_info, metadata)
+                                self.logger.info(f"模拟处理电影: {file} -> {new_name}")
+                            else:
+                                self.logger.warning(f"模拟处理失败，无法获取元数据: {file}")
+                        else:
+                            self._process_movie(video_info)
+                    
+                    processed_count += 1
+                except Exception as e:
+                    self.logger.error(f"处理文件失败: {file_path}, 错误: {e}")
+                    skipped_count += 1
+        
+        self.logger.info(f"批量处理完成")
+        self.logger.info(f"处理文件数: {processed_count}")
+        self.logger.info(f"跳过文件数: {skipped_count}")
+        
+        return processed_count, skipped_count
+
+def main():
+    """主函数"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="智能影视文件重命名工具")
+    parser.add_argument("directory", nargs="?", default=".", help="要处理的目录路径")
+    parser.add_argument("--api-config", "-c", default="api_keys.json", help="API密钥配置文件")
+    parser.add_argument("--dry-run", "-n", action="store_true", help="模拟运行，不实际修改文件")
+    parser.add_argument("--verbose", "-v", action="store_true", help="显示详细日志")
+    parser.add_argument("--log-file", "-l", default="video_renamer.log", help="日志文件路径")
+    
+    args = parser.parse_args()
+    
+    # 配置日志级别
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+    
+    # 读取API密钥配置
+    api_keys = {}
+    try:
+        if os.path.exists(args.api_config):
+            with open(args.api_config, 'r', encoding='utf-8') as f:
+                api_keys = json.load(f)
+    except Exception as e:
+        logging.error(f"读取API配置失败: {e}")
+        logging.info("将使用默认API密钥（如果有）")
+    
+    # 初始化重命名工具
+    renamer = EnhancedVideoRenamer(api_keys)
+    
+    # 处理目录
+    directory = os.path.abspath(args.directory)
+    logging.info(f"开始处理目录: {directory}")
+    
+    try:
+        processed, skipped = renamer.batch_process_files(directory, args.dry_run)
+        logging.info(f"处理完成: 成功 {processed} 个, 跳过 {skipped} 个")
+    except Exception as e:
+        logging.error(f"程序运行失败: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
