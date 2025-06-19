@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-电视剧文件整理工具专业版 V2.6+V2.7 融合优化版
-
-功能亮点：
-- 自动生成 YAML 配置，正则全部用单引号，兼容 YAML
-- 支持并发/断点续传/撤销/热重载/详细进度报告
-- 交互/参数双模式，丰富错误处理与目录树展示
-- 适配少量定制（如 metadata_extensions 支持图片）
+电视剧文件整理工具专业版 V2.6+V2.7 融合优化版（优化集成一体版）
 """
 
 import os
@@ -34,9 +28,9 @@ colorama_init(autoreset=True)
 class ConfigManager:
     DEFAULT_CONFIG = '''version: "2.6"
 paths:
-  tv_shows: '/volume1/电视剧待整理'
-  backup: '/volume1/电视剧待整理/备份'
-  output: '/volume1/电视剧整理完成'
+  tv_shows: './电视剧待整理'
+  backup: './电视剧待整理/备份'
+  output: './电视剧整理完成'
   undo_log: 'undo_log.json'
   log_dir: 'logs'
   checkpoint: 'checkpoint.json'
@@ -598,65 +592,50 @@ class TVShowProcessor:
         except OSError:
             return False
 
+    # ===================== 优化后的信息提取相关方法 =====================
+
     def extract_info(self, filepath: str) -> Optional[Dict]:
         filename = os.path.basename(filepath)
         basename, ext = os.path.splitext(filename)
         dirname = os.path.basename(os.path.dirname(filepath))
         parent_dirname = os.path.basename(os.path.dirname(os.path.dirname(filepath)))
-        processing_steps = [
-            lambda: self._extract_info_from_dir(dirname, parent_dirname),
-            lambda: self._extract_info_from_filename(basename),
-            lambda: self._extract_mixed_info(dirname, parent_dirname, basename)
-        ]
-        for step in processing_steps:
-            result = step()
-            if result:
-                result['title'] = self._filter_chinese(result['title'])
-                result['ext'] = ext
-                return result
+        # 优先级1：目录（含上级目录）提取
+        info = self._extract_info_from_dir(dirname, parent_dirname, basename)
+        if info:
+            info['title'] = self._filter_chinese(info['title'])
+            info['ext'] = ext
+            return info
+        # 优先级2：文件名直接提取
+        info = self._extract_info_from_filename(basename)
+        if info:
+            info['title'] = self._filter_chinese(info['title'])
+            info['ext'] = ext
+            return info
+        # 优先级3：混合补全
+        info = self._extract_mixed_info(dirname, parent_dirname, basename)
+        if info:
+            info['title'] = self._filter_chinese(info['title'])
+            info['ext'] = ext
+            return info
         self.logger.warning(f" 无法解析: {filename}")
         return None
 
-    def _extract_mixed_info(self, dirname, parent_dirname, basename):
-        season = self._extract_season_from_dir(dirname)
-        if season is None:
-            season = self._extract_season_from_dir(parent_dirname)
-        if season is not None:
-            title = self._extract_title_from_filename(basename)
-            if title:
-                episode = self._extract_episode(basename)
-                if episode is not None:
-                    return {
-                        'title': title,
-                        'season': season,
-                        'episode': episode
-                    }
-        return None
-
-    def _extract_info_from_dir(self, dirname: str, parent_dirname: str) -> Optional[Dict]:
+    def _extract_info_from_dir(self, dirname: str, parent_dirname: str, basename: str) -> Optional[Dict]:
         for pattern, _ in self.dir_season_patterns:
             match = pattern.search(dirname)
             if match:
                 season = self._parse_season_number(match.group(1))
-                if season is not None:
-                    title = re.sub(pattern.pattern, '', dirname).strip()
-                    if title:
-                        episode = 1
-                        return {
-                            'title': title,
-                            'season': season,
-                            'episode': episode
-                        }
+                title = re.sub(pattern.pattern, '', dirname).strip()
+                episode = self._extract_episode(basename) or 1
+                if season and title:
+                    return {'title': title, 'season': season, 'episode': episode}
         for pattern, _ in self.dir_season_patterns:
             match = pattern.search(parent_dirname)
             if match:
                 season = self._parse_season_number(match.group(1))
-                if season is not None:
-                    return {
-                        'title': dirname,
-                        'season': season,
-                        'episode': 1
-                    }
+                if season:
+                    episode = self._extract_episode(basename) or 1
+                    return {'title': dirname, 'season': season, 'episode': episode}
         return None
 
     def _extract_info_from_filename(self, basename: str) -> Optional[Dict]:
@@ -665,15 +644,19 @@ class TVShowProcessor:
             if match:
                 title = match.group(1).replace('.', ' ').strip()
                 season = self._parse_season_number(match.group(2))
-                if title and season is not None:
-                    remaining = basename[match.end():]
-                    episode = self._extract_episode(remaining)
-                    if episode is not None:
-                        return {
-                            'title': title,
-                            'season': season,
-                            'episode': episode
-                        }
+                remaining = basename[match.end():]
+                episode = self._extract_episode(remaining) or self._extract_episode(basename) or 1
+                if title and season:
+                    return {'title': title, 'season': season, 'episode': episode}
+        return None
+
+    def _extract_mixed_info(self, dirname, parent_dirname, basename):
+        season = self._extract_season_from_dir(dirname) or self._extract_season_from_dir(parent_dirname)
+        if season:
+            title = self._extract_title_from_filename(basename) or dirname
+            episode = self._extract_episode(basename) or 1
+            if title:
+                return {'title': title, 'season': season, 'episode': episode}
         return None
 
     def _extract_title_from_filename(self, basename: str) -> Optional[str]:
@@ -684,9 +667,7 @@ class TVShowProcessor:
         title = re.sub(r'[\._\-]E\d+.*', '', title)
         title = re.sub(r'[\._\-]\d{4}.*', '', title)
         title = title.replace('.', ' ').strip()
-        if title:
-            return title
-        return None
+        return title or None
 
     def _extract_season_from_dir(self, dirname: str) -> Optional[int]:
         for pattern, _ in self.dir_season_patterns:
@@ -709,7 +690,7 @@ class TVShowProcessor:
             return cn_numbers[s]
         try:
             return int(s.lstrip('Ss'))
-        except ValueError:
+        except Exception:
             return None
 
     def _parse_episode_number(self, s: str) -> Optional[int]:
@@ -722,7 +703,7 @@ class TVShowProcessor:
             return cn_numbers[s]
         try:
             return int(s)
-        except ValueError:
+        except Exception:
             return None
 
     def _filter_chinese(self, text: str) -> str:
@@ -744,7 +725,7 @@ class TVShowProcessor:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='电视剧文件整理工具专业版 V2.6+V2.7融合版',
+        description='电视剧文件整理工具专业版 V2.6+V2.7 融合优化一体版',
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('--config', help='指定配置文件路径（可选）')
@@ -755,7 +736,7 @@ def main():
     parser.add_argument('--interactive', '-i', action='store_true', help='进入交互模式')
 
     if len(sys.argv) == 1:
-        print(f"{Fore.CYAN}\n欢迎使用电视剧文件整理工具 V2.6+V2.7融合版")
+        print(f"{Fore.CYAN}\n欢迎使用电视剧文件整理工具 V2.6+V2.7 融合优化一体版")
         print(f"{Fore.YELLOW}\n首次使用请按照以下步骤操作：")
         print("1. 首次运行会自动生成配置文件")
         print("2. 修改配置文件中的路径设置")
