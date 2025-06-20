@@ -1,0 +1,203 @@
+{
+    "app_info": {
+        "name": "智能影视文件重命名工具",
+        "version": "1.0.0",
+        "description": "跨平台影视文件智能重命名工具",
+        "author": "OpenHands AI",
+        "created_time": "2025-06-08T20:56:18.208595",
+        "supported_os": [
+            "Windows",
+            "macOS",
+            "Linux",
+            "Synology"
+        ]
+    },
+    "supported_formats": {
+        "video_extensions": [
+            ".mp4",
+            ".mkv",
+            ".avi",
+            ".mov",
+            ".wmv",
+            ".flv",
+            ".webm",
+            ".m4v",
+            ".3gp",
+            ".ts",
+            ".mts",
+            ".m2ts",
+            ".rmvb",
+            ".rm",
+            ".asf",
+            ".f4v",
+            ".vob"
+        ],
+        "subtitle_extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".sub",
+            ".idx",
+            ".vtt"
+        ]
+    },
+    "naming_templates": {
+        "movie_templates": {
+            "synology_default": "{title} ({year}) [{resolution}] [{quality}].{ext}",
+            "plex_format": "{title} ({year}).{ext}",
+            "detailed": "{title} ({year}) [{resolution}] [{source}] [{codec}] [{audio}].{ext}",
+            "simple": "{title} ({year}).{ext}",
+            "custom": "{title} ({year}) - {quality}.{ext}"
+        },
+        "tv_templates": {
+            "synology_default": "{title} S{season:02d}E{episode:02d} [{resolution}] [{quality}].{ext}",
+            "plex_format": "{title} - S{season:02d}E{episode:02d}.{ext}",
+            "detailed": "{title} S{season:02d}E{episode:02d} [{resolution}] [{source}] [{codec}].{ext}",
+            "simple": "{title} S{season:02d}E{episode:02d}.{ext}",
+            "custom": "{title} - 第{season}季第{episode}集.{ext}"
+        },
+        "current_movie_template": "synology_default",
+        "current_tv_template": "synology_default"
+    },
+    "extraction_rules": {
+        "movie_patterns": [
+            {
+                "name": "标准电影格式",
+                "pattern": "^(.+?)[\\.\\s]+(\\d{4})[\\.\\s]*(.*)$",
+                "groups": {
+                    "title": 1,
+                    "year": 2,
+                    "extra": 3
+                },
+                "description": "匹配：电影名.2023.1080p.BluRay.x264"
+            },
+            {
+                "name": "括号年份格式",
+                "pattern": "^(.+?)\\s*\\((\\d{4})\\)\\s*(.*)$",
+                "groups": {
+                    "title": 1,
+                    "year": 2,
+                    "extra": 3
+                },
+                "description": "匹配：电影名 (2023) 1080p"
+            },
+            {
+                "name": "中文电影格式",
+                "pattern": "^(.+?)[\\.\\s]*(\\d{4})[\\.\\s]*(.*)$",
+                "groups": {
+                    "title": 1,
+                    "year": 2,
+                    "extra": 3
+                },
+                "description": "匹配中文电影名"
+            }
+        ],
+        "tv_patterns": [
+            {
+                "name": "标准剧集格式",
+                "pattern": "^(.+?)[\\.\\s]+[Ss](\\d{1,2})[Ee](\\d{1,2})[\\.\\s]*(.*)$",
+                "groups": {
+                    "title": 1,
+                    "season": 2,
+                    "episode": 3,
+                    "extra": 4
+                },
+                "description": "匹配：剧名.S01E01.1080p"
+            },
+            {
+                "name": "数字季集格式",
+                "pattern": "^(.+?)[\\.\\s]+(\\d{1,2})x(\\d{1,2})[\\.\\s]*(.*)$",
+                "groups": {
+                    "title": 1,
+                    "season": 2,
+                    "episode": 3,
+                    "extra": 4
+                },
+                "description": "匹配：剧名.1x01.720p"
+            },
+            {
+                "name": "中文季集格式",
+                "pattern": "^(.+?)[\\.\\s]*第(\\d{1,2})季[\\.\\s]*第(\\d{1,2})集[\\.\\s]*(.*)$",
+                "groups": {
+                    "title": 1,
+                    "season": 2,
+                    "episode": 3,
+                    "extra": 4
+                },
+                "description": "匹配中文季集格式"
+            }
+        ],
+        "extra_patterns": {
+            "resolution": [
+                "(4K|2160p|1080p|720p|480p|360p)",
+                "(\\d{3,4}p)"
+            ],
+            "quality": [
+                "(BluRay|BDRip|DVDRip|WEBRip|HDTV|CAM|TS|TC)",
+                "(蓝光|高清|超清|标清)"
+            ],
+            "source": [
+                "(Netflix|Amazon|Disney|HBO|Hulu|Apple)",
+                "(网飞|亚马逊|迪士尼|爱奇艺|腾讯|优酷)"
+            ],
+            "codec": [
+                "(x264|x265|H\\.264|H\\.265|HEVC|AVC)",
+                "(h264|h265|hevc|avc)"
+            ],
+            "audio": [
+                "(DTS|AC3|AAC|MP3|FLAC|Atmos)",
+                "(杜比|环绕声)"
+            ],
+            "language": [
+                "(Chinese|English|Japanese|Korean)",
+                "(中文|英文|日文|韩文|国语|粤语)"
+            ],
+            "group": [
+                "\\[([^\\]]+)\\]$",
+                "-([A-Za-z0-9]+)$"
+            ]
+        }
+    },
+    "app_settings": {
+        "default_work_directory": "",
+        "backup_enabled": true,
+        "backup_directory": "backup",
+        "dry_run_default": true,
+        "auto_detect_type": true,
+        "case_sensitive": false,
+        "skip_existing": true,
+        "create_directories": true,
+        "log_level": "INFO",
+        "max_log_files": 10,
+        "encoding": "utf-8"
+    },
+    "synology_settings": {
+        "video_station_path": "/volume1/video",
+        "movie_folder": "Movies",
+        "tv_folder": "TV Shows",
+        "create_season_folders": true,
+        "season_folder_format": "Season {season:02d}",
+        "metadata_files": [
+            ".nfo",
+            ".jpg",
+            ".png"
+        ],
+        "preserve_metadata": true
+    },
+    "safety_settings": {
+        "max_files_per_batch": 1000,
+        "confirm_before_rename": true,
+        "create_undo_log": true,
+        "forbidden_characters": [
+            "<",
+            ">",
+            ":",
+            "\"",
+            "|",
+            "?",
+            "*"
+        ],
+        "max_filename_length": 255,
+        "preserve_original_case": false
+    }
+}
